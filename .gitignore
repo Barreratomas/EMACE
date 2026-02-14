@@ -1,0 +1,98 @@
+# ==========================================
+# INDUSTRIAL AGENT PROJECT - MASTER GITIGNORE
+# ==========================================
+
+# --- Node.js & Frontend (Next.js) ---
+**/node_modules/
+**/.next/
+**/out/
+**/build/
+**/dist/
+**/.vercel/
+**/.turbo/
+**/.pnp
+**/.pnp.*
+**/.yarn/*
+!**/.yarn/patches
+!**/.yarn/plugins
+!**/.yarn/releases
+!**/.yarn/versions
+
+# --- Python & Backend (FastAPI) ---
+**/__pycache__/
+**/*.py[cod]
+**/*$py.class
+**/.pytest_cache/
+**/venv/
+**/env/
+**/.python-version
+**/pip-log.txt
+**/pip-delete-this-directory.txt
+**/htmlcov/
+**/.tox/
+**/.nox/
+**/.coverage
+**/.coverage.*
+**/.cache
+**/nosetests.xml
+**/coverage.xml
+**/*.filenames
+**/.hypothesis/
+**/.pdm-python
+**/.python-learn
+**/*.db
+**/*.sqlite
+**/*.sqlite3
+**/cold_storage/
+
+# --- Environment & Secrets (Global) ---
+**/.env
+**/.env.local
+**/.env.development.local
+**/.env.test.local
+**/.env.production.local
+**/.env.*.local
+**/.env.*
+!**/.env.example
+**/*.pem
+**/*.key
+
+# --- Testing & Reports ---
+**/test-results/
+**/playwright-report/
+**/blob-report/
+**/playwright/.cache/
+**/coverage/
+**/*.tsbuildinfo
+
+# --- Logs ---
+**/*.log
+**/npm-debug.log*
+**/yarn-debug.log*
+**/yarn-error.log*
+**/.pnpm-debug.log*
+**/lerna-debug.log*
+
+# --- IDE & Editors ---
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-project
+*.sublime-workspace
+.agents/
+.cline/
+.continue/
+
+# --- System Files ---
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Infrastructure ---
+docker-compose.override.yml
+**/openapi.json
+**/next-env.d.ts
+**/qdrant_data/
+**/storage/
+**/.cache/

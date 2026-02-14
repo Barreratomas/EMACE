@@ -1,0 +1,49 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: agent_postgres
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: SecurePass123!
+      POSTGRES_DB: agent_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - agent_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d agent_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: agent_qdrant
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    networks:
+      - agent_network
+
+  adminer:
+    image: adminer
+    container_name: agent_adminer
+    restart: always
+    ports:
+      - "8081:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+    networks:
+      - agent_network
+
+networks:
+  agent_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  qdrant_data:

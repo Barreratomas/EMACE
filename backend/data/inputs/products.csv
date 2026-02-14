@@ -1,0 +1,8 @@
+name,category,price,stock,description,type,status,min_stock_threshold,sla
+Laptop HP,Hardware,1200,15,Laptop de alto rendimiento,physical,active,5,
+Servidor Dell,Hardware,2500,5,Servidor Rack 2U,physical,active,2,
+Mantenimiento Mensual,Servicios,300,0,Soporte técnico 24/7,service,active,,4h response
+Licencia Windows,Software,150,50,Licencia Windows 11 Pro,physical,active,10,
+Consultoría Seguridad,Servicios,1500,0,Auditoría de seguridad informática,service,paused,,48h report
+Mouse Logitech,Hardware,25,100,Mouse inalámbrico,physical,active,20,
+Teclado Mecánico,Hardware,80,30,Teclado RGB,physical,archived,5,

@@ -1,0 +1,190 @@
+# 📐 EMACE: Ecosistema Multi-Agente Cognitivo Enterprise
+
+## 1. Visión General
+**EMACE** es una plataforma de asistencia inteligente **proactiva** y **Multi-Tenant (B2B2C)** capaz de resolver consultas complejas y ejecutar acciones en el mundo real. Diseñada para operar como un SaaS, permite que múltiples Vendedores (Users) gestionen sus propios negocios y Clientes Finales (Customers) de forma aislada y segura.
+
+---
+
+## 2. Arquitectura de Alto Nivel
+
+El sistema sigue un patrón de **Hub-and-Spoke Jerárquico** con **Aislamiento de Inquilinos (Tenant Isolation)**. La comunicación entre el Frontend y el Backend es híbrida: REST para operaciones CRUD y WebSockets para interacción con agentes en tiempo real.
+
+```mermaid
+graph TD
+    subgraph "Capa de Presentación (Frontend)"
+        UI[Next.js App / Tailwind v4]
+        SDK[Type-Safe API Client]
+        WS_Client[WebSocket Client]
+    end
+
+    Client[API Gateway / FastAPI] --> Auth[Auth Middleware]
+    Auth -- "Inject user_id" --> Supervisor
+    Cron[Scheduler / Proactividad] --> Supervisor
+    
+    UI --> SDK
+    SDK --> Client
+    WS_Client <--> WS_Endpoint[WebSocket Endpoint]
+    WS_Endpoint <--> Supervisor
+
+    subgraph "Capa Cognitiva (Context Aware)"
+        Supervisor{Supervisor / Router}
+        
+        subgraph "Subgrafo Facturación"
+            Billing[Billing Router] --> Researcher[Investigador SQL]
+            Researcher --> Analyst[Analista de Negocio]
+        end
+        
+        Tech[Agente Técnico]
+        Sales[Agente Ventas (Híbrido)]
+        QA[Agente de Calidad]
+    end
+    
+    subgraph "Capa de Datos (Multi-Tenant)"
+        SQL[(PostgreSQL)]
+        Vector[(Qdrant)]
+        Cold[(Cold Storage / JSON)]
+    end
+    
+    subgraph "Capa de Acción"
+        Email[Servidor SMTP]
+        Calendar[Google Calendar]
+    end
+    
+    Supervisor --> Billing
+    Supervisor --> Tech
+    Supervisor --> Sales
+    
+    Researcher <--> SQL
+    Tech <--> Vector
+    Sales <--> SQL & Vector
+    
+    Analyst --> QA
+    Tech --> QA
+    Sales --> QA
+    
+    QA -- "Aprobado" --> UI
+    QA -- "Acción" --> Email
+    QA -- "Acción" --> Calendar
+    QA -- "Rechazado" --> Supervisor
+```
+
+---
+
+## 3. Componentes del Sistema
+
+### 3.1 Interfaz de Usuario y Experiencia (Evolución: Industrial Command Center)
+- **Concepto "Operador"**: El usuario interactúa como un supervisor de misiones, utilizando una interfaz que proyecta control, precisión y proactividad.
+- **Estética Neo-Glassmorphism Refinado**:
+    - **Superficies**: Paneles con `backdrop-blur(20px)` y bordes de cristal (gradientes de 1px).
+    - **Atmósfera**: Fondos oscuros con textura de grano (grain) y gradientes de malla (mesh) en tonos acero y medianoche.
+- **Tipografía**: Dualidad entre fuentes suizas técnicas (`Aeonik/FK Grotesk`) para la UI y fuentes monoespaciadas (`JetBrains Mono`) para datos y logs de agentes.
+- **Acentos Cromáticos**: Uso estratégico de `Safety Orange` (#FF5F1F) para elementos críticos y `Cyber Lime` para operatividad activa.
+- **Comunicación Type-Safe**: Cliente API generado automáticamente desde OpenAPI.
+- **Real-time Chat**: Terminal de comando persistente con WebSockets.
+
+### 3.2 Gestión de Identidad y Seguridad
+- **Middleware de Contexto**: Intercepta cada petición, valida el `user_id` (vía JWT) y lo inyecta en el `RunnableConfig` de LangGraph.
+- **Aislamiento**: Garantiza que ningún agente pueda acceder a datos de otro Vendedor.
+- **Cookies Seguras**: Manejo de tokens de sesión mediante cookies con interceptores de Axios para renovación automática.
+
+### 3.3 El Supervisor (Orquestador)
+- **Rol**: Director de orquesta. No resuelve tareas, las delega.
+- **Responsabilidad**: Entender la intención y mantener el estado global.
+- **Lógica**: StateGraph de LangGraph con soporte para subgrafos.
+
+### 3.4 Agentes Especialistas (Workers)
+Cada agente opera dentro del contexto del `user_id` inyectado.
+
+| Agente | Responsabilidad | Herramientas (Tools) | Acceso a Datos |
+|--------|----------------|----------------------|----------------|
+| **Facturación** | Pagos, facturas, disputas | `get_invoice_details`, `check_payment_status` | SQL (Filtered by user_id) |
+| **Técnico** | Errores, configuración | `search_knowledge_base`, `check_system_health` | Vector DB (Filtered) |
+| **Ventas** | Venta Consultiva | `search_catalog`, `send_quote`, `schedule_demo` | SQL + Vector (Filtered) |
+| **Inventario** | Gestión de Stock/Productos | `add_product`, `update_stock`, `get_product_details` | SQL (Filtered) |
+
+### 3.5 Agente de Calidad (QA & Learning)
+- **Validación**: Filtra alucinaciones y riesgos.
+- **Aprendizaje**: Guarda "Lecciones Aprendidas" en Qdrant, aisladas por tenant si es necesario.
+
+### 3.6 Módulo de Proactividad
+- **Scheduler**: Ejecuta tareas programadas (Cron Jobs) para monitoreo de vencimientos.
+- **Trigger Inverso**: El sistema inicia la conversación ("Tu factura vence mañana").
+
+### 3.7 Gestión de Conocimiento e Ingesta (Nuevo)
+- **Ingesta Vectorial**: Interfaz para que usuarios con permisos carguen documentos (PDF, MD, TXT) que se procesan, fragmentan y almacenan en Qdrant con el `user_id` correspondiente.
+- **Importación SQL**: Herramientas de carga masiva para productos y datos transaccionales, validando la propiedad de los datos mediante el contexto de inquilino.
+- **Control de Acceso**: Solo usuarios con roles administrativos o de dueño de tienda pueden modificar la base de conocimiento y el catálogo base.
+
+---
+
+## 4. Modelo de Datos (B2B2C)
+
+### 4.1 Relacional (PostgreSQL)
+Esquema normalizado con Foreign Keys para Multi-Tenancy.
+
+- **Users (Vendedores)**: Dueños de la tienda/instancia.
+- **Customers (Clientes Finales)**: Clientes de cada Vendedor (`user_id` FK).
+- **Products**: Catálogo propio de cada Vendedor (`user_id` FK).
+    - Tipos: 'physical', 'service'.
+    - Estados: 'active', 'paused', 'archived'.
+- **Invoices/Tickets**: Vinculados a un `Customer` y un `User`.
+- **ChatHistory**: Auditoría legal de conversaciones (`session_id`, `user_id`, `timestamp`).
+
+### 4.2 Vectorial (Memoria Semántica & Episódica)
+Qdrant configurado con **Payload Indexing** para alto rendimiento.
+
+- **Colección `knowledge_base`**:
+    - **Indices**: `user_id` (INTEGER), `timestamp` (DATETIME).
+    - **Filtros**: Obligatorios en cada query (`filter: { user_id: X }`).
+- **Política de Retención**:
+    - **Hot Storage**: Memorias < 6 meses en Qdrant.
+    - **Cold Storage**: Memorias > 6 meses archivadas en JSON y eliminadas de Qdrant.
+
+---
+
+## 5. Flujo de Ejecución Seguro
+
+### Flujo Reactivo (Chat)
+1.  **Auth**: API recibe `POST /chat` con `user_id`. Middleware inyecta contexto.
+2.  **Enrutamiento**: Supervisor decide agente basándose en historial reciente.
+3.  **Recuperación (RAG)**: Agente consulta Vector DB con filtro `must: [{key: "user_id", match: {value: current_user_id}}]`.
+4.  **Ejecución**: Tool SQL ejecuta `SELECT * FROM products WHERE user_id = :current_user_id`.
+5.  **Respuesta**: QA valida y responde.
+
+### Flujo Proactivo (Job)
+1.  **Scheduler**: Itera sobre todos los `Users` activos.
+2.  **Check**: Verifica condiciones (ej. Stock bajo) para ese usuario específico.
+3.  **Notificación**: Genera evento para el Supervisor con el contexto del usuario correcto.
+
+### Flujo de Ingesta de Datos (Admin)
+1.  **Carga**: El usuario autorizado sube un archivo o envía datos vía API.
+2.  **Validación**: El sistema verifica permisos y el `user_id` del solicitante.
+3.  **Procesamiento**:
+    - **Vectorial**: El archivo se divide en chunks, se generan embeddings y se guarda en Qdrant con filtro de `user_id`.
+    - **SQL**: Se validan los esquemas y se insertan los registros vinculados al `user_id`.
+4.  **Sincronización**: Los agentes actualizan su contexto inmediatamente con la nueva información disponible.
+
+---
+
+## 6. Stack Tecnológico
+
+### 6.1 Backend (Core Cognitivo)
+- **Lenguaje**: Python 3.10+
+- **Orquestación**: LangGraph + LangChain.
+- **API**: FastAPI (Dependency Injection).
+- **Base de Datos**: PostgreSQL (SQLModel/SQLAlchemy) + Alembic.
+- **Vector Store**: Qdrant (Docker).
+- **Modelos LLM**: `stepfun/step-3.5-flash:free` (Optimizado para latencia y tool-calling).
+- **Comunicación**: WebSockets para streaming de agentes.
+
+### 6.2 Frontend (Interfaz & Experiencia)
+- **Framework**: Next.js 15 (App Router).
+- **Estilos**: Tailwind CSS v4 + Framer Motion.
+- **Estado y API**: TanStack React Query + Axios.
+- **Generación de Cliente**: `@hey-api/openapi-ts` (Type-Safety total).
+- **Diseño**: Sistema Neo-Glassmorphism Industrial.
+- **PWA**: Next-PWA para soporte Offline básico.
+
+### 6.3 Infraestructura
+- **Contenedores**: Docker & Docker Compose.
+- **CI/CD**: Configuración preparada para despliegue automatizado.

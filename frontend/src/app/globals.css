@@ -1,0 +1,190 @@
+@import "tailwindcss";
+
+@theme {
+  /* Colors - Industrial Command Center Palette */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  
+  --color-steel: #121417;
+  --color-midnight: #0A0C0E;
+  --color-safety-orange: #FF5F1F;
+  --color-cyber-lime: #CCFF00;
+  
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-accent: var(--accent);
+  --color-border-ui: var(--border);
+  --color-card: var(--card);
+  
+  /* Fonts */
+  --font-display: var(--font-display);
+  --font-mono: var(--font-mono);
+  
+  /* Radii - Technical & Precise */
+  --radius-xl: 0.75rem;
+  --radius-lg: 0.5rem;
+  --radius-md: 0.25rem;
+  --radius-sm: 0.125rem;
+
+  /* Keyframes - Mechanical Animations */
+  @keyframes scan {
+    0% { transform: translateY(-100%); }
+    100% { transform: translateY(200%); }
+  }
+
+  @keyframes scan-horizontal {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(200%); }
+  }
+
+  @keyframes pulse-fast {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  @keyframes glitch {
+    0% { clip-path: inset(80% 0 0 0); transform: translate(-2px, -2px); }
+    10% { clip-path: inset(10% 0 85% 0); transform: translate(2px, 2px); }
+    20% { clip-path: inset(80% 0 0 0); transform: translate(-2px, -2px); }
+    30% { clip-path: inset(10% 0 85% 0); transform: translate(2px, 2px); }
+    40% { clip-path: inset(50% 0 30% 0); transform: translate(-2px, -2px); }
+    50% { clip-path: inset(80% 0 0 0); transform: translate(2px, 2px); }
+    100% { clip-path: inset(80% 0 0 0); transform: translate(-2px, -2px); }
+  }
+
+  @keyframes progress-segmented {
+    0% { width: 0%; }
+    100% { width: 100%; }
+  }
+
+  /* Utility Animations */
+  --animate-scan: scan 3s linear infinite;
+  --animate-scan-horizontal: scan-horizontal 2.5s linear infinite;
+  --animate-pulse-fast: pulse-fast 0.8s ease-in-out infinite;
+  --animate-glitch: glitch 0.3s cubic-bezier(.25, .46, .45, .94) both infinite;
+}
+
+:root {
+  /* Default Light Mode (Not primary focus, but functional) */
+  --background: #f4f4f5;
+  --foreground: #09090b;
+  --primary: #FF5F1F;
+  --primary-foreground: #ffffff;
+  --secondary: #27272a;
+  --accent: #CCFF00;
+  --border: rgba(9, 9, 11, 0.1);
+  --card: rgba(255, 255, 255, 0.8);
+  
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(0, 0, 0, 0.1);
+  --glass-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="dark"], :root {
+  /* Core Industrial Command Center (Dark Mode by default) */
+  --background: #0A0C0E;
+  --foreground: #E2E8F0;
+  --primary: #FF5F1F; /* Safety Orange */
+  --primary-foreground: #ffffff;
+  --secondary: #CCFF00; /* Cyber Lime */
+  --accent: #FF5F1F;
+  --border: rgba(255, 255, 255, 0.08);
+  --card: rgba(18, 20, 23, 0.6);
+  
+  --glass-bg: rgba(18, 20, 23, 0.6);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-display), sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-attachment: fixed;
+}
+
+/* Base Industrial Utilities */
+@layer base {
+  * {
+    border-color: var(--color-border-ui);
+  }
+}
+
+/* Command Center Components */
+.btn-cyber {
+  @apply relative inline-flex items-center justify-center gap-2 px-6 py-2 
+         bg-primary text-white font-bold uppercase tracking-wider
+         transition-all duration-200 active:scale-95
+         shadow-lg shadow-primary/20 hover:shadow-primary/40
+         border-b-4 border-r-2 border-primary/50;
+  clip-path: polygon(0 0, 100% 0, 100% 70%, 90% 100%, 0 100%);
+}
+
+.btn-cyber:hover {
+  @apply bg-primary/90 -translate-y-0.5;
+}
+
+.btn-cyber:focus-visible {
+  @apply outline-none ring-2 ring-accent ring-offset-2 ring-offset-midnight shadow-[0_0_20px_rgba(204,255,0,0.4)];
+}
+
+.panel-industrial {
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  border-radius: var(--radius-lg);
+  position: relative;
+  overflow: hidden;
+}
+
+.panel-industrial::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+}
+
+.terminal-text {
+  font-family: var(--font-mono), monospace;
+  letter-spacing: -0.01em;
+}
+
+/* Grain / Noise Texture */
+.bg-noise {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  content: "";
+  opacity: 0.03;
+  z-index: 1;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3%3Ffilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+}
+
+/* Custom Scrollbar - Industrial Style */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--midnight);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 0;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--primary);
+}
