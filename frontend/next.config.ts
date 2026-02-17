@@ -1,5 +1,7 @@
-import type { NextConfig } from "next";
-const withPWA = require('next-pwa')({
+import type { NextConfig } from 'next';
+import nextPWA from 'next-pwa';
+
+const withPWA = nextPWA({
   dest: 'public',
   disable: process.env.NODE_ENV === 'development',
   register: true,
@@ -7,7 +9,16 @@ const withPWA = require('next-pwa')({
 });
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  webpack: (config) => {
+    if (process.env.NEXT_WEBPACK_USEPOLLING) {
+      config.watchOptions = {
+        ...(config.watchOptions || {}),
+        poll: 800,
+        aggregateTimeout: 300,
+      };
+    }
+    return config;
+  },
 };
 
 export default withPWA(nextConfig);

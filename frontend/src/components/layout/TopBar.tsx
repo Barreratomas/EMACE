@@ -93,9 +93,9 @@ export default function TopBar() {
           <div className="flex items-center gap-1 bg-black/40 px-2 py-1 border border-white/5 ml-2">
             <Globe size={12} className="text-slate-500" />
             <div className="flex items-center text-[10px] font-bold terminal-text">
-              <Link href={pathname} locale="es" className="px-1 text-slate-500 hover:text-primary">ES</Link>
+              <Link href={pathname} className="px-1 text-slate-500 hover:text-primary">ES</Link>
               <span className="text-white/10">/</span>
-              <Link href={pathname} locale="en" className="px-1 text-primary">EN</Link>
+              <Link href={pathname} className="px-1 text-primary">EN</Link>
             </div>
           </div>
         </div>

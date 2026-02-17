@@ -15,9 +15,13 @@ def search_product_catalog(query: str, config: RunnableConfig) -> str:
     Busca productos en el catálogo.
     Puede buscar por nombre, categoría o características.
     """
-    user_id = config.get("configurable", {}).get("user_id")
-    if not user_id:
+    raw_user_id = config.get("configurable", {}).get("user_id")
+    if not raw_user_id:
         return "Error de Seguridad: No se identificó al usuario (Vendor)."
+    try:
+        user_id = int(raw_user_id)
+    except (TypeError, ValueError):
+        return "Error de Seguridad: Identificador de usuario inválido."
 
     session_gen = get_session()
     session = next(session_gen)
@@ -47,9 +51,13 @@ def check_stock(product_name: str, config: RunnableConfig) -> str:
     """
     Verifica la disponibilidad de un producto por nombre exacto o parcial.
     """
-    user_id = config.get("configurable", {}).get("user_id")
-    if not user_id:
+    raw_user_id = config.get("configurable", {}).get("user_id")
+    if not raw_user_id:
         return "Error de Seguridad: No se identificó al usuario."
+    try:
+        user_id = int(raw_user_id)
+    except (TypeError, ValueError):
+        return "Error de Seguridad: Identificador de usuario inválido."
 
     session_gen = get_session()
     session = next(session_gen)
@@ -80,13 +88,18 @@ def create_order(product_names_and_quantities: List[dict], config: RunnableConfi
     """
     Crea un pedido para el cliente actual. 
     Recibe una lista de diccionarios con 'product_name' y 'quantity'.
-    Ejemplo: [{"product_name": "Laptop", "quantity": 1}, {"product_name": "Mouse", "quantity": 2}]
+    Ejemplo: [{\"product_name\": \"Laptop\", \"quantity\": 1}, {\"product_name\": \"Mouse\", \"quantity\": 2}]
     """
-    user_id = config.get("configurable", {}).get("user_id")
+    raw_user_id = config.get("configurable", {}).get("user_id")
     customer_id = config.get("configurable", {}).get("customer_id")
     
-    if not user_id or not customer_id:
+    if not raw_user_id or not customer_id:
         return "Error: No se pudo identificar el contexto de la venta o el cliente."
+
+    try:
+        user_id = int(raw_user_id)
+    except (TypeError, ValueError):
+        return "Error de Seguridad: Identificador de usuario inválido."
 
     session_gen = get_session()
     session = next(session_gen)
@@ -156,9 +169,15 @@ def add_to_cart(product_name: str, quantity: int = 1, config: RunnableConfig = N
     """
     Añade un producto al carrito de compras del cliente.
     """
-    user_id = config.get("configurable", {}).get("user_id")
+    raw_user_id = config.get("configurable", {}).get("user_id")
     customer_id = config.get("configurable", {}).get("customer_id")
-    if not customer_id: return "Error: No se identificó al cliente."
+    if not raw_user_id or not customer_id:
+        return "Error: No se identificó el cliente o el usuario."
+
+    try:
+        user_id = int(raw_user_id)
+    except (TypeError, ValueError):
+        return "Error de Seguridad: Identificador de usuario inválido."
 
     session_gen = get_session()
     session = next(session_gen)
@@ -226,8 +245,15 @@ def checkout_cart(config: RunnableConfig) -> str:
     """
     Procesa el carrito actual y crea un pedido formal.
     """
-    user_id = config.get("configurable", {}).get("user_id")
+    raw_user_id = config.get("configurable", {}).get("user_id")
     customer_id = config.get("configurable", {}).get("customer_id")
+    if not raw_user_id or not customer_id:
+        return "Error: No se identificó el contexto de checkout."
+
+    try:
+        user_id = int(raw_user_id)
+    except (TypeError, ValueError):
+        return "Error de Seguridad: Identificador de usuario inválido."
     session_gen = get_session()
     session = next(session_gen)
     try:

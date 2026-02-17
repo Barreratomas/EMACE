@@ -4,9 +4,21 @@ import subprocess
 import argparse
 from pathlib import Path
 
-# Rutas
-# Este script vive en agent/backend, por lo que BASE_DIR es .../agent/backend
 BASE_DIR = Path(__file__).parent.absolute()
+VENV_DIR = BASE_DIR / "venv"
+
+def get_venv_python() -> Path:
+    if sys.platform.startswith("win"):
+        return VENV_DIR / "Scripts" / "python.exe"
+    return VENV_DIR / "bin" / "python"
+
+def ensure_venv() -> Path:
+    venv_python = get_venv_python()
+    if not venv_python.exists():
+        run_command(f"\"{sys.executable}\" -m venv \"{VENV_DIR}\"")
+        run_command(f"\"{venv_python}\" -m pip install --upgrade pip")
+        run_command(f"\"{venv_python}\" -m pip install -r requirements.txt")
+    return venv_python
 
 def run_command(command, cwd=None, env=None):
     """Ejecuta un comando de consola con la configuración de entorno adecuada."""
@@ -38,19 +50,76 @@ def run_command(command, cwd=None, env=None):
 
 def start_api(args):
     """Inicia el servidor backend de FastAPI."""
-    run_command("uvicorn app.api.main:app --reload")
+    run_command("uvicorn app.api.main:app --reload --host 0.0.0.0 --port 8000")
 
+def start_api_venv(args):
+    """Inicia el servidor creando venv si no existe (sin alembic)."""
+    venv_python = ensure_venv()
+    run_command(f"\"{venv_python}\" -m uvicorn app.api.main:app --reload --host 0.0.0.0 --port 8000")
+
+ 
 def start_dashboard(args):
     """Inicia el Panel de Administración (Streamlit)."""
     run_command("streamlit run app/dashboard/admin.py")
 
 def run_migrate(args):
     """Ejecuta las migraciones de la base de datos para actualizar a la última versión (head)."""
+    # Preflight: crear placeholders idempotentes para tablas de checkpoint si la DB está vacía
+    try:
+        from sqlalchemy import create_engine, text
+        db_url = os.getenv("DATABASE_URL")
+        if db_url:
+            engine = create_engine(db_url, pool_pre_ping=True)
+            with engine.begin() as conn:
+                conn.execute(text("CREATE TABLE IF NOT EXISTS checkpoint_migrations (v integer PRIMARY KEY);"))
+                conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS checkpoints (
+                        thread_id text NOT NULL,
+                        checkpoint_ns text DEFAULT '' NOT NULL,
+                        checkpoint_id text NOT NULL,
+                        parent_checkpoint_id text,
+                        type text,
+                        checkpoint jsonb NOT NULL,
+                        metadata jsonb DEFAULT '{}' NOT NULL,
+                        PRIMARY KEY(thread_id, checkpoint_ns, checkpoint_id)
+                    );
+                """))
+                conn.execute(text("CREATE INDEX IF NOT EXISTS checkpoints_thread_id_idx ON checkpoints(thread_id);"))
+                conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS checkpoint_blobs (
+                        thread_id text NOT NULL,
+                        checkpoint_ns text DEFAULT '' NOT NULL,
+                        channel text NOT NULL,
+                        version text NOT NULL,
+                        type text NOT NULL,
+                        blob bytea,
+                        PRIMARY KEY(thread_id, checkpoint_ns, channel, version)
+                    );
+                """))
+                conn.execute(text("CREATE INDEX IF NOT EXISTS checkpoint_blobs_thread_id_idx ON checkpoint_blobs(thread_id);"))
+                conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS checkpoint_writes (
+                        thread_id text NOT NULL,
+                        checkpoint_ns text DEFAULT '' NOT NULL,
+                        checkpoint_id text NOT NULL,
+                        task_id text NOT NULL,
+                        idx integer NOT NULL,
+                        channel text NOT NULL,
+                        type text,
+                        blob bytea NOT NULL,
+                        task_path text DEFAULT '' NOT NULL,
+                        PRIMARY KEY(thread_id, checkpoint_ns, checkpoint_id, task_id, idx)
+                    );
+                """))
+                conn.execute(text("CREATE INDEX IF NOT EXISTS checkpoint_writes_thread_id_idx ON checkpoint_writes(thread_id);"))
+    except Exception as e:
+        print(f"⚠️  Preflight de tablas checkpoint omitido: {e}")
     run_command("alembic upgrade head")
 
 def makemigrations(args):
     """Genera un nuevo script de migración basado en los cambios de los modelos."""
     message = args.message if args.message else "Migración generada automáticamente"
+    run_command("alembic upgrade head")
     run_command(f'alembic revision --autogenerate -m "{message}"')
 
 def migrate_down(args):
@@ -89,6 +158,7 @@ def main():
 
     # Registro de comandos
     subparsers.add_parser("api", help="Iniciar backend FastAPI (uvicorn)")
+    subparsers.add_parser("api-venv", help="Iniciar backend creando venv si no existe")
     subparsers.add_parser("dashboard", help="Iniciar Panel de Administración (streamlit)")
     
     # Migraciones (Alembic)
@@ -110,6 +180,7 @@ def main():
     # Mapeo de comandos
     commands = {
         "api": start_api,
+        "api-venv": start_api_venv,
         "dashboard": start_dashboard,
         "migrate": run_migrate,
         "makemigrations": makemigrations,

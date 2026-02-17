@@ -9,6 +9,27 @@ import {
 } from '@/lib/api/generated/sdk.gen';
 import { User } from '../types';
 
+const API_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1');
+
+function decodeJwtPayload(token: string): any | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length < 2) return null;
+    const payload = atob(parts[1].replace(/-/g, '+').replace(/_/g, '/'));
+    return JSON.parse(decodeURIComponent(escape(payload)));
+  } catch {
+    return null;
+  }
+}
+
+function persistTokenClaims(accessToken: string) {
+  const payload = decodeJwtPayload(accessToken) || {};
+  const userType = payload.user_type || payload.type || null;
+  const vendorParentId = payload.vendor_parent_id || null;
+  if (userType) Cookies.set('user_type', String(userType), { expires: 1/48 });
+  if (vendorParentId !== null && vendorParentId !== undefined) Cookies.set('vendor_parent_id', String(vendorParentId), { expires: 1/48 });
+}
+
 export async function loginAction(formData: FormData) {
   const email = formData.get('email') as string;
   const password = formData.get('password') as string;
@@ -31,7 +52,35 @@ export async function loginAction(formData: FormData) {
   // Store tokens in cookies
   Cookies.set('access_token', data.access_token, { expires: 1/48 }); // 30 mins
   Cookies.set('refresh_token', data.refresh_token, { expires: 7 }); // 7 days
+  persistTokenClaims(data.access_token);
 
+  return data;
+}
+
+export async function loginIamAction(formData: FormData) {
+  const email = formData.get('email') as string;
+  const password = formData.get('password') as string;
+  const vendor_identifier = formData.get('vendor_identifier') as string;
+
+  const res = await fetch(`${API_URL}/auth/login-iam`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password, vendor_identifier }),
+  });
+
+  if (!res.ok) {
+    let detail = 'Error en la autenticación';
+    try {
+      const err = await res.json();
+      detail = err?.detail || detail;
+    } catch {}
+    throw new Error(detail);
+  }
+
+  const data = await res.json();
+  Cookies.set('access_token', data.access_token, { expires: 1/48 });
+  Cookies.set('refresh_token', data.refresh_token, { expires: 7 });
+  persistTokenClaims(data.access_token);
   return data;
 }
 

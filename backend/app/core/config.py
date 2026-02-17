@@ -53,6 +53,18 @@ class Settings(BaseSettings):
     TELEGRAM_ENABLED: bool = False
     TELEGRAM_BOT_TOKEN: str | None = None
     TELEGRAM_DEFAULT_CHAT_ID: str | None = None
+    TELEGRAM_MTPROTO_ENABLED: bool = False
+    TELEGRAM_MTPROTO_KILL_SWITCH: bool = False
+    TELEGRAM_MTPROTO_ALLOWED_VENDORS: str | None = None
+    TELEGRAM_MTPROTO_API_ID: int | None = None
+    TELEGRAM_MTPROTO_API_HASH: str | None = None
+    TELEGRAM_PUBLIC_BASE_URL: str | None = None
+
+    # Mercado Pago
+    MP_ACCESS_TOKEN: str | None = None
+    MP_WEBHOOK_SECRET: str | None = None
+    MP_WEBHOOK_URL: str | None = None
+    MP_CURRENCY_ID: str = "ARS"
 
     model_config = SettingsConfigDict(
         env_file=".env",

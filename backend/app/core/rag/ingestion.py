@@ -1,5 +1,5 @@
 import os
-from typing import List
+from typing import List, Optional
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader, TextLoader, UnstructuredMarkdownLoader
@@ -92,6 +92,68 @@ class IngestionService:
             points=points
         )
         print(f"   -> {len(points)} vectores guardados en '{self.collection_name}'.")
+
+    def list_documents(self, user_id: Optional[int] = None):
+        """
+        Lista documentos únicos ingeridos para un usuario.
+        """
+        filter_query = None
+        if user_id:
+            filter_query = models.Filter(
+                must=[
+                    models.FieldCondition(
+                        key="user_id",
+                        match=models.MatchValue(value=user_id)
+                    )
+                ]
+            )
+        
+        # Usamos scroll para obtener puntos y luego filtramos fuentes únicas
+        points, _ = self.client.scroll(
+            collection_name=self.collection_name,
+            scroll_filter=filter_query,
+            limit=100,
+            with_payload=True,
+            with_vectors=False
+        )
+        
+        sources = {}
+        for p in points:
+            src = p.payload.get("source")
+            if src and src not in sources:
+                sources[src] = {
+                    "name": src,
+                    "id": p.id,
+                    "created_at": p.payload.get("created_at", "N/A")
+                }
+        
+        return list(sources.values())
+
+    def delete_document(self, source_name: str, user_id: Optional[int] = None):
+        """
+        Elimina todos los puntos asociados a una fuente y usuario.
+        """
+        conditions = [
+            models.FieldCondition(
+                key="source",
+                match=models.MatchValue(value=source_name)
+            )
+        ]
+        if user_id:
+            conditions.append(
+                models.FieldCondition(
+                    key="user_id",
+                    match=models.MatchValue(value=user_id)
+                )
+            )
+            
+        self.client.delete(
+            collection_name=self.collection_name,
+            points_selector=models.FilterSelector(
+                filter=models.Filter(must=conditions)
+            )
+        )
+        return True
 
 # Instancia global para uso fácil
 ingestion_service = IngestionService()

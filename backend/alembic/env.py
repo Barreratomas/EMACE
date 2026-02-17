@@ -32,6 +32,18 @@ if db_url:
 
 # add your model's MetaData object here
 target_metadata = SQLModel.metadata
+def include_object(object, name, type_, reflected, compare_to):
+    if name is None:
+        return True
+    blocked_prefixes = ("checkpoint_", "checkpoints")
+    blocked_exact = {"checkpoint_migrations"}
+    if type_ in {"table", "index"}:
+        if name in blocked_exact:
+            return False
+        for p in blocked_prefixes:
+            if name.startswith(p):
+                return False
+    return True
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode."""
@@ -41,6 +53,7 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        include_object=include_object,
     )
 
     with context.begin_transaction():
@@ -56,7 +69,7 @@ def run_migrations_online() -> None:
 
     with connectable.connect() as connection:
         context.configure(
-            connection=connection, target_metadata=target_metadata
+            connection=connection, target_metadata=target_metadata, include_object=include_object
         )
 
         with context.begin_transaction():

@@ -1,12 +1,24 @@
-import os
+import asyncio
 from contextlib import asynccontextmanager
 from psycopg_pool import AsyncConnectionPool
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
-from dotenv import load_dotenv
-import asyncio
+from sqlalchemy.engine.url import make_url
+from app.core.config import get_settings
 
-load_dotenv()
-DATABASE_URL = os.getenv("DATABASE_URL")
+settings = get_settings()
+
+def _build_conninfo() -> str:
+  url = make_url(settings.DATABASE_URL)
+  userinfo = ""
+  if url.username:
+    userinfo = url.username
+    if url.password:
+      userinfo += f":{url.password}"
+    userinfo += "@"
+  host = url.host or "localhost"
+  port = f":{url.port}" if url.port else ""
+  database = url.database or ""
+  return f"postgresql://{userinfo}{host}{port}/{database}"
 
 @asynccontextmanager
 async def get_postgres_checkpointer():
@@ -14,8 +26,7 @@ async def get_postgres_checkpointer():
     Context manager loop-safe para obtener el checkpointer.
     Cada test o request obtiene un pool en su propio loop.
     """
-    # Crear pool fresco por loop
-    pool = AsyncConnectionPool(conninfo=DATABASE_URL, max_size=20, open=False)
+    pool = AsyncConnectionPool(conninfo=_build_conninfo(), max_size=20, open=False)
     await pool.open()
     print(f"DEBUG: Pool opened for loop {id(asyncio.get_running_loop())}")
 

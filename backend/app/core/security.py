@@ -5,6 +5,9 @@ from passlib.context import CryptContext
 import re
 import bleach
 import uuid
+import base64
+import hashlib
+from cryptography.fernet import Fernet
 from app.core.config import settings
 
 # Hashing robusto con bcrypt (salt rounds >= 12 configurado por defecto en passlib para bcrypt)
@@ -105,3 +108,23 @@ def decode_token(token: str) -> dict:
         return jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
     except jwt.JWTError:
         return {}
+
+def _fernet_for_key(secret_key: str) -> Fernet:
+    key_bytes = hashlib.sha256(secret_key.encode("utf-8")).digest()
+    key_b64 = base64.urlsafe_b64encode(key_bytes)
+    return Fernet(key_b64)
+
+def encrypt_secret(plain: str) -> str:
+    return _fernet_for_key(settings.SECRET_KEY).encrypt(plain.encode("utf-8")).decode("utf-8")
+def decrypt_secret(token: str) -> str:
+    return _fernet_for_key(settings.SECRET_KEY).decrypt(token.encode("utf-8")).decode("utf-8")
+def decrypt_secret(token: str) -> str:
+    return _fernet_for_key(settings.SECRET_KEY).decrypt(token.encode("utf-8")).decode("utf-8")
+
+
+def encrypt_secret_with_key(plain: str, secret_key: str) -> str:
+    return _fernet_for_key(secret_key).encrypt(plain.encode("utf-8")).decode("utf-8")
+
+
+def decrypt_secret_with_key(token: str, secret_key: str) -> str:
+    return _fernet_for_key(secret_key).decrypt(token.encode("utf-8")).decode("utf-8")

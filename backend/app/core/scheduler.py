@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from apscheduler.schedulers.blocking import BlockingScheduler
 from sqlmodel import Session, select
+import httpx
 
 from app.core.database.session import engine
 from app.core.database.models import (
@@ -9,13 +10,21 @@ from app.core.database.models import (
     Invoice,
     Appointment,
     AuditLog,
+    VendorAccessState,
+    BillingEvent,
+    VendorAccessAudit,
+    VendorTelegramIntegration,
+    VendorMtprotoSession,
 )
 from app.core.comm.notifications import dispatch_notifications
+from app.core.security import decrypt_secret
+from app.core.telegram_mtproto import mtproto_manager
 
 
 INVOICE_DUE_DAYS = 3
 APPOINTMENT_WINDOW_HOURS = 24
 DEDUP_TTL_MINUTES = 60
+TELEGRAM_HEALTH_RETRIES = 2
 
 
 def _log_event(
@@ -166,6 +175,181 @@ def _check_appointments(session: Session, user: User) -> None:
         )
 
 
+def _check_trial_expiration(session: Session, user: User) -> None:
+    now = datetime.now(timezone.utc)
+    state = session.exec(
+        select(VendorAccessState).where(
+            VendorAccessState.vendor_id == user.id
+        )
+    ).first()
+    if not state:
+        return
+    if state.source == "trial" and state.valid_until and state.valid_until <= now:
+        dedup_key = f"trial_expired:{user.id}"
+        details = (
+            f"trial_expired|user_id={user.id}|valid_until={state.valid_until.isoformat()}"
+        )
+        _log_event(
+            session=session,
+            user_id=user.id,
+            action="trial_expired",
+            details=details,
+            dedup_key=dedup_key,
+        )
+        be = BillingEvent(
+            vendor_id=user.id,
+            event_type="trial_expired",
+            mp_event_id=None,
+            raw_payload=None,
+            normalized={"vendor_id": user.id, "valid_until": state.valid_until.isoformat()},
+            created_at=now,
+        )
+        session.add(be)
+        vaa = VendorAccessAudit(
+            vendor_id=user.id,
+            actor_user_id=None,
+            action="set_trial_expired",
+            old_state={"source": "trial"},
+            new_state={"source": "trial", "expired": True},
+            created_at=now,
+        )
+        session.add(vaa)
+
+
+def _telegram_health_check(session: Session) -> None:
+    integrations = session.exec(
+        select(VendorTelegramIntegration).where(
+            VendorTelegramIntegration.is_active == True,
+            VendorTelegramIntegration.state == "active",
+        )
+    ).all()
+    for integration in integrations:
+        try:
+            token = decrypt_secret(integration.bot_token_encrypted)
+        except Exception as e:
+            error_msg = f"decrypt_error:{str(e)[:100]}"
+            integration.last_error = error_msg
+            session.add(integration)
+            dedup_key = f"telegram_health:{integration.vendor_id}"
+            details = (
+                f"telegram_health_failed|user_id={integration.vendor_id}|"
+                f"bot_username={integration.bot_username}|error={error_msg}"
+            )
+            _log_event(
+                session=session,
+                user_id=integration.vendor_id,
+                action="telegram_integration_error",
+                details=details,
+                dedup_key=dedup_key,
+            )
+            continue
+
+        ok = False
+        error_msg = ""
+        for attempt in range(TELEGRAM_HEALTH_RETRIES):
+            try:
+                with httpx.Client(timeout=5) as client:
+                    resp = client.get(f"https://api.telegram.org/bot{token}/getMe")
+                if resp.status_code == 200 and resp.json().get("ok"):
+                    ok = True
+                    break
+                error_msg = f"telegram_health_status:{resp.status_code}"
+            except httpx.HTTPError as e:
+                error_msg = f"telegram_health_http_error:{str(e)[:100]}"
+
+        if ok:
+            if integration.last_error:
+                integration.last_error = None
+                session.add(integration)
+            dedup_key = f"telegram_health_ok:{integration.vendor_id}"
+            details = (
+                f"telegram_integration_ok|user_id={integration.vendor_id}|"
+                f"bot_username={integration.bot_username}"
+            )
+            _log_event(
+                session=session,
+                user_id=integration.vendor_id,
+                action="telegram_integration_ok",
+                details=details,
+                dedup_key=dedup_key,
+            )
+        else:
+            integration.last_error = error_msg[:500]
+            session.add(integration)
+            dedup_key = f"telegram_health_failed:{integration.vendor_id}"
+            details = (
+                f"telegram_health_failed|user_id={integration.vendor_id}|"
+                f"bot_username={integration.bot_username}|error={error_msg}"
+            )
+            _log_event(
+                session=session,
+                user_id=integration.vendor_id,
+                action="telegram_integration_error",
+                details=details,
+                dedup_key=dedup_key,
+            )
+
+
+def _mtproto_heartbeat(session: Session) -> None:
+    records = session.exec(
+        select(VendorMtprotoSession).where(VendorMtprotoSession.enabled == True)
+    ).all()
+    now = datetime.now(timezone.utc)
+    for record in records:
+        record.last_heartbeat_at = now
+        record.status = record.status or "enabled"
+        session.add(record)
+        details = (
+            f"mtproto_heartbeat|user_id={record.vendor_id}|status={record.status}"
+        )
+        _log_event(
+            session=session,
+            user_id=record.vendor_id,
+            action="mtproto_heartbeat",
+            details=details,
+            dedup_key=f"mtproto_heartbeat:{record.vendor_id}",
+        )
+    if records:
+        session.commit()
+
+
+def _billing_sanitize(session: Session) -> None:
+    now = datetime.now(timezone.utc)
+    cutoff = now - timedelta(hours=1)
+    pending = session.exec(
+        select(BillingEvent).where(
+            BillingEvent.event_type == "unassigned_event",
+            BillingEvent.created_at >= cutoff,
+        )
+    ).all()
+    for ev in pending:
+        details = f"billing_sanitize_pending|event_id={ev.id}|created_at={ev.created_at.isoformat()}"
+        _log_event(
+            session=session,
+            user_id=ev.vendor_id or 0,
+            action="billing_sanitize_pending",
+            details=details,
+        )
+
+
+def _check_telegram_integrations(session: Session) -> None:
+    integrations = session.exec(
+        select(VendorTelegramIntegration).where(VendorTelegramIntegration.last_error != None)
+    ).all()
+    for integration in integrations:
+        dedup_key = f"telegram_integration_error:{integration.vendor_id}"
+        details = (
+            f"telegram_integration_error|user_id={integration.vendor_id}|"
+            f"bot_username={integration.bot_username}|last_error={integration.last_error}"
+        )
+        _log_event(
+            session=session,
+            user_id=integration.vendor_id,
+            action="telegram_integration_error",
+            details=details,
+            dedup_key=dedup_key,
+        )
+
 def run_once() -> None:
     with Session(engine) as session:
         users = session.exec(select(User)).all()
@@ -175,7 +359,12 @@ def run_once() -> None:
             _check_zero_stock_auto_pause(session, user)
             _check_invoice_due(session, user)
             _check_appointments(session, user)
+            _check_trial_expiration(session, user)
 
+        _billing_sanitize(session)
+        _telegram_health_check(session)
+        _check_telegram_integrations(session)
+        _mtproto_heartbeat(session)
         session.commit()
         dispatch_notifications(session)
         session.commit()

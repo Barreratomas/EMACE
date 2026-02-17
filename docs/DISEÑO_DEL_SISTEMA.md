@@ -115,6 +115,29 @@ Cada agente opera dentro del contexto del `user_id` inyectado.
 - **Importación SQL**: Herramientas de carga masiva para productos y datos transaccionales, validando la propiedad de los datos mediante el contexto de inquilino.
 - **Control de Acceso**: Solo usuarios con roles administrativos o de dueño de tienda pueden modificar la base de conocimiento y el catálogo base.
 
+### 3.8 Gestión de Identidad y Acceso (IAM)
+- **Usuarios Vendor vs. Usuarios Limitados (IAM)**:
+  - Vendor/Admin: dueños de instancia. `parent_id = NULL`.
+  - IAM (usuarios limitados): subordinados a un Vendor. `parent_id = vendor.id`.
+- **Autenticación Particionada**:
+  - `/auth/login`: exclusivo para Vendor/Admin. Rechaza IAM con `403`.
+  - `/auth/login-iam`: exclusivo para usuarios limitados. Requiere `vendor_identifier` (email del Vendor).
+- **Claims JWT**:
+  - `user_type`: `"vendor"` o `"iam_user"`.
+  - `vendor_parent_id`: id del tenant raíz para scoping.
+- **Tenant Isolation**:
+  - Utilidad `get_tenant_owner_id(user)` resuelve el owner del tenant: `user.parent_id or user.id`.
+  - Todos los queries y acciones filtran/operan con `vendor_parent_id` derivado.
+- **RBAC + IAM Policies**:
+  - Roles base (ej. `vendor`) y políticas asignables a IAM para granularidad por feature.
+  - Chequeo centralizado de permisos + caché TTL en memoria con invalidación en cambios.
+- **Auditoría y Revocación**:
+  - Registro en `AuditLog` de acciones IAM sensibles.
+  - Endpoint de revocación masiva de sesiones IAM por usuario hijo.
+- **Frontend**:
+  - UI de Login con pestañas: “Usuarios” y “Usuarios limitados”.
+  - Persistencia de `user_type` y `vendor_parent_id` en cookies para contextualizar la app.
+
 ---
 
 ## 4. Modelo de Datos (B2B2C)
@@ -129,6 +152,9 @@ Esquema normalizado con Foreign Keys para Multi-Tenancy.
     - Estados: 'active', 'paused', 'archived'.
 - **Invoices/Tickets**: Vinculados a un `Customer` y un `User`.
 - **ChatHistory**: Auditoría legal de conversaciones (`session_id`, `user_id`, `timestamp`).
+- **Usuarios IAM**: `users.parent_id` referencia al `users.id` del Vendor propietario.
+- **IAMPolicy**: Políticas de permisos granulares (ej. `inventory:read`, `orders:write`).
+- **UserIAMPolicyLink**: Relación N:N entre usuarios IAM y políticas.
 
 ### 4.2 Vectorial (Memoria Semántica & Episódica)
 Qdrant configurado con **Payload Indexing** para alto rendimiento.
@@ -163,6 +189,17 @@ Qdrant configurado con **Payload Indexing** para alto rendimiento.
     - **Vectorial**: El archivo se divide en chunks, se generan embeddings y se guarda en Qdrant con filtro de `user_id`.
     - **SQL**: Se validan los esquemas y se insertan los registros vinculados al `user_id`.
 4.  **Sincronización**: Los agentes actualizan su contexto inmediatamente con la nueva información disponible.
+
+### Autenticación Particionada (Vendor/IAM)
+1. **Vendor/Admin**:
+   - Frontend: pestaña “Usuarios” → `/auth/login`.
+   - Backend: genera JWT con `user_type="vendor"` y `vendor_parent_id=user.id`.
+2. **Usuario IAM**:
+   - Frontend: pestaña “Usuarios limitados” (requiere `vendor_identifier`).
+   - Backend: valida pertenencia (`user.parent_id == vendor.id`) y emite JWT con `user_type="iam_user"`, `vendor_parent_id=vendor.id`.
+3. **Propagación de Contexto**:
+   - Frontend persiste `vendor_parent_id` y `user_type` en cookies.
+   - Backend utiliza `get_tenant_owner_id` para filtrar datos y evaluar permisos.
 
 ---
 

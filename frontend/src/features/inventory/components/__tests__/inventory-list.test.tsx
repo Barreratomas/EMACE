@@ -10,12 +10,13 @@ const products: Product[] = [
 ];
 
 describe('InventoryList filtering', () => {
-  it('filters by type: only services when selecting SERVICIOS', () => {
+  it('filters by status: only paused when selecting Pausa', () => {
     render(<InventoryList initialProducts={products} />);
     expect(screen.getByText(/Inventario Central/i)).toBeInTheDocument();
-    const servicesButton = screen.getByRole('button', { name: /SERVICIOS/i });
-    fireEvent.click(servicesButton);
+    const pausedButton = screen.getByRole('button', { name: /Pausa/i });
+    fireEvent.click(pausedButton);
     expect(screen.queryByText(/^A$/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^C$/)).not.toBeInTheDocument();
     expect(screen.getByText(/^B$/)).toBeInTheDocument();
   });
 });

@@ -62,13 +62,16 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['product_id'], ['product.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
-    op.drop_table('checkpoint_migrations')
-    op.drop_index(op.f('checkpoint_writes_thread_id_idx'), table_name='checkpoint_writes')
-    op.drop_table('checkpoint_writes')
-    op.drop_index(op.f('checkpoint_blobs_thread_id_idx'), table_name='checkpoint_blobs')
-    op.drop_table('checkpoint_blobs')
-    op.drop_index(op.f('checkpoints_thread_id_idx'), table_name='checkpoints')
-    op.drop_table('checkpoints')
+    
+    # Hacer todos los drops condicionales con IF EXISTS
+    op.execute('DROP TABLE IF EXISTS checkpoint_migrations')
+    op.execute('DROP INDEX IF EXISTS checkpoint_writes_thread_id_idx')
+    op.execute('DROP TABLE IF EXISTS checkpoint_writes')
+    op.execute('DROP INDEX IF EXISTS checkpoint_blobs_thread_id_idx')
+    op.execute('DROP TABLE IF EXISTS checkpoint_blobs')
+    op.execute('DROP INDEX IF EXISTS checkpoints_thread_id_idx')
+    op.execute('DROP TABLE IF EXISTS checkpoints')
+    
     op.add_column('customer', sa.Column('telegram_chat_id', sqlmodel.sql.sqltypes.AutoString(), nullable=True))
     op.create_index(op.f('ix_customer_telegram_chat_id'), 'customer', ['telegram_chat_id'], unique=False)
     op.add_column('ticket', sa.Column('priority', sqlmodel.sql.sqltypes.AutoString(), nullable=False))

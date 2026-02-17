@@ -11,6 +11,7 @@ import {
   Shield, 
   Terminal,
   LogOut,
+  MessageCircle,
 } from 'lucide-react';
 import { logout } from '@/features/auth/actions/auth';
 import { cn } from '@/lib/utils';
@@ -18,11 +19,15 @@ import { cn } from '@/lib/utils';
 const menuItems = [
   { icon: LayoutDashboard, label: 'DASHBOARD_GENERAL', href: '/dashboard' },
   { icon: Package, label: 'GESTIÓN_INVENTARIO', href: '/inventory' },
+  { icon: Terminal, label: 'BASE_CONOCIMIENTO', href: '/knowledge' },
   { icon: Users, label: 'PANEL_AGENTES', href: '/agents' },
   { icon: Activity, label: 'MÉTRICAS_SISTEMA', href: '/analytics' },
   // { icon: Settings, label: 'CONFIGURACIÓN', href: '/settings' },
+  { icon: Settings, label: 'IAM', href: '/settings/iam' },
   { icon: Settings, label: 'EMAIL_TEMPLATES', href: '/settings/emails' },
   { icon: Settings, label: 'CENTRO_NOTIFICACIONES', href: '/settings/notifications' },
+  { icon: Settings, label: 'BILLING', href: '/settings/billing' },
+  { icon: MessageCircle, label: 'TELEGRAM', href: '/settings/telegram' },
 ];
 
 export default function Sidebar() {

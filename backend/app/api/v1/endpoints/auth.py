@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database.session import get_async_session
-from app.core.database.models import User, RefreshToken, Role
+from app.core.database.models import User, RefreshToken, Role, VendorAccessState
 from app.core.security import (
     verify_password,
     get_password_hash,
@@ -12,7 +12,7 @@ from app.core.security import (
     validate_password_policy
 )
 from app.core.config import settings
-from app.schemas.auth import Token, UserLogin, UserRegister, UserResponse, PasswordChange, UserUpdate
+from app.schemas.auth import Token, UserLogin, UserRegister, UserResponse, PasswordChange, UserUpdate, IAMLogin
 from app.repositories.auth import AuthRepository
 from app.api.deps import get_current_user
 from app.core.rate_limit import limiter
@@ -57,7 +57,23 @@ async def register(
         role_id=role.id,
         is_active=True
     )
-    return await auth_repo.create_user(session, new_user)
+    created_user = await auth_repo.create_user(session, new_user)
+
+    # Estado de acceso inicial (Trial 30 días)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    trial_until = now + timedelta(days=30)
+    vas = VendorAccessState(
+        vendor_id=created_user.id,
+        access_mode="subscription",
+        source="trial",
+        valid_until=trial_until,
+        subscription_id_mp=None,
+        created_at=now
+    )
+    session.add(vas)
+    await session.commit()
+
+    return created_user
 
 @router.post("/login", response_model=Token)
 @limiter.limit("10/minute")
@@ -79,11 +95,76 @@ async def login(
     
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Usuario inactivo")
+    
+    # Restringir login estándar a usuarios Vendor/Admin (no IAM)
+    if user.parent_id is not None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Usuario limitado detectado. Debes iniciar sesión en la sección de Usuarios Limitados."
+        )
 
     # Generar tokens
+    user_type = "iam_user" if user.parent_id is not None else "vendor"
+    vendor_parent_id = user.parent_id if user.parent_id is not None else user.id
     access_token = create_access_token(
         subject=user.id,
-        claims={"role": user.role.name if user.role else None}
+        claims={
+            "role": user.role.name if user.role else None,
+            "user_type": user_type,
+            "vendor_parent_id": vendor_parent_id
+        }
+    )
+    refresh_token_str = create_refresh_token(subject=user.id)
+
+    # Guardar refresh token en BD
+    expires_at = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    db_refresh_token = RefreshToken(
+        token=refresh_token_str,
+        user_id=user.id,
+        expires_at=expires_at
+    )
+    await auth_repo.create_refresh_token(session, db_refresh_token)
+
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token_str,
+        "token_type": "bearer",
+    }
+
+@router.post("/login-iam", response_model=Token)
+@limiter.limit("10/minute")
+async def login_iam(
+    request: Request,
+    body: IAMLogin,
+    session: AsyncSession = Depends(get_async_session)
+):
+    """
+    Login particionado para usuarios limitados (IAM).
+    Requiere vendor_identifier (email del vendor).
+    """
+    # Resolver vendor padre
+    vendor = await auth_repo.get_user_by_email(session, body.vendor_identifier)
+    if not vendor:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vendor no encontrado")
+
+    # Cargar usuario limitado
+    user = await auth_repo.get_user_by_email(session, body.email)
+    if not user or not verify_password(body.password, user.password_hash):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciales inválidas")
+    if not user.is_active:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Usuario inactivo")
+    # Validar vínculo con vendor
+    if user.parent_id != vendor.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="El usuario no pertenece al vendor indicado")
+
+    # Generar tokens con claims de IAM
+    access_token = create_access_token(
+        subject=user.id,
+        claims={
+            "role": user.role.name if user.role else None,
+            "user_type": "iam_user",
+            "vendor_parent_id": vendor.id
+        }
     )
     refresh_token_str = create_refresh_token(subject=user.id)
 
@@ -122,9 +203,15 @@ async def refresh_token_endpoint(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuario no encontrado o inactivo")
 
     # Generar nuevos tokens
+    user_type = "iam_user" if user.parent_id is not None else "vendor"
+    vendor_parent_id = user.parent_id if user.parent_id is not None else user.id
     new_access_token = create_access_token(
         subject=user.id,
-        claims={"role": user.role.name if user.role else None}
+        claims={
+            "role": user.role.name if user.role else None,
+            "user_type": user_type,
+            "vendor_parent_id": vendor_parent_id
+        }
     )
     new_refresh_token_str = create_refresh_token(subject=user.id)
 

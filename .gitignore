@@ -24,6 +24,7 @@
 **/*$py.class
 **/.pytest_cache/
 **/venv/
+**/venv_win/
 **/env/
 **/.python-version
 **/pip-log.txt

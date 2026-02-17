@@ -29,12 +29,15 @@ def add_product(
         stock: Cantidad inicial (solo físicos).
         sla: Acuerdo de nivel de servicio (solo servicios, ej: '24h').
     """
-    user_id = config.get("configurable", {}).get("user_id")
-    if not user_id:
+    raw_user_id = config.get("configurable", {}).get("user_id")
+    if not raw_user_id:
         return "Error de Seguridad: No se identificó al usuario (Vendor) en el contexto."
+    try:
+        user_id = int(raw_user_id)
+    except (TypeError, ValueError):
+        return "Error de Seguridad: Identificador de usuario inválido."
 
     with Session(engine) as session:
-        # Check if exists for THIS user
         existing = session.exec(select(Product).where(Product.name == name, Product.user_id == user_id)).first()
         if existing:
             return f"Error: El producto '{name}' ya existe en tu catálogo (ID: {existing.id})."
@@ -67,12 +70,15 @@ def update_product_stock(
         product_id: ID del producto.
         quantity_delta: Cantidad a sumar (positivo) o restar (negativo).
     """
-    user_id = config.get("configurable", {}).get("user_id")
-    if not user_id:
+    raw_user_id = config.get("configurable", {}).get("user_id")
+    if not raw_user_id:
         return "Error de Seguridad: No se identificó al usuario."
+    try:
+        user_id = int(raw_user_id)
+    except (TypeError, ValueError):
+        return "Error de Seguridad: Identificador de usuario inválido."
 
     with Session(engine) as session:
-        # Get product checking ownership
         product = session.exec(select(Product).where(Product.id == product_id, Product.user_id == user_id)).first()
         if not product:
             return f"Error: Producto ID {product_id} no encontrado o no te pertenece."
@@ -109,9 +115,13 @@ def set_product_status(
     Args:
         status: 'active' (activo/visible), 'paused' (inactivo/pausado), 'archived' (archivado/borrado).
     """
-    user_id = config.get("configurable", {}).get("user_id")
-    if not user_id:
+    raw_user_id = config.get("configurable", {}).get("user_id")
+    if not raw_user_id:
         return "Error de Seguridad: No se identificó al usuario."
+    try:
+        user_id = int(raw_user_id)
+    except (TypeError, ValueError):
+        return "Error de Seguridad: Identificador de usuario inválido."
 
     print(f"DEBUG TOOL [set_product_status]: Recibido status='{status}'")
     
@@ -159,16 +169,18 @@ def get_product_details(product_name_or_id: str, config: RunnableConfig) -> str:
     Obtiene detalles completos de un producto para gestión.
     Puede buscar por ID (si es numérico) o por nombre.
     """
-    user_id = config.get("configurable", {}).get("user_id")
-    if not user_id:
+    raw_user_id = config.get("configurable", {}).get("user_id")
+    if not raw_user_id:
         return "Error de Seguridad: No se identificó al usuario."
+    try:
+        user_id = int(raw_user_id)
+    except (TypeError, ValueError):
+        return "Error de Seguridad: Identificador de usuario inválido."
 
     with Session(engine) as session:
         if product_name_or_id.isdigit():
-            # Buscar por ID y validar ownership
             product = session.exec(select(Product).where(Product.id == int(product_name_or_id), Product.user_id == user_id)).first()
         else:
-            # Buscar por nombre y validar ownership
             product = session.exec(select(Product).where(Product.name.ilike(f"%{product_name_or_id}%"), Product.user_id == user_id)).first()
             
         if not product:
@@ -191,9 +203,13 @@ def list_inventory(config: RunnableConfig) -> str:
     Obtiene una lista resumida de todos los productos en el inventario del usuario con su stock actual.
     Útil para responder preguntas como "¿qué stock tengo?", "¿cuáles son mis productos?" o "dame un resumen de mi inventario".
     """
-    user_id = config.get("configurable", {}).get("user_id")
-    if not user_id:
+    raw_user_id = config.get("configurable", {}).get("user_id")
+    if not raw_user_id:
         return "Error de Seguridad: No se identificó al usuario."
+    try:
+        user_id = int(raw_user_id)
+    except (TypeError, ValueError):
+        return "Error de Seguridad: Identificador de usuario inválido."
 
     with Session(engine) as session:
         products = session.exec(
@@ -218,9 +234,13 @@ def get_low_stock_products(config: RunnableConfig) -> str:
     """
     Obtiene productos con stock bajo (por debajo del umbral configurado).
     """
-    user_id = config.get("configurable", {}).get("user_id")
-    if not user_id:
+    raw_user_id = config.get("configurable", {}).get("user_id")
+    if not raw_user_id:
         return "Error de Seguridad: No se identificó al usuario."
+    try:
+        user_id = int(raw_user_id)
+    except (TypeError, ValueError):
+        return "Error de Seguridad: Identificador de usuario inválido."
 
     from app.repositories.product import product_repo
     
@@ -248,9 +268,13 @@ def bulk_update_product_status(
         product_ids: Lista de IDs de productos a actualizar.
         new_status: Nuevo estado ('active', 'paused', 'archived').
     """
-    user_id = config.get("configurable", {}).get("user_id")
-    if not user_id:
+    raw_user_id = config.get("configurable", {}).get("user_id")
+    if not raw_user_id:
         return "Error de Seguridad: No se identificó al usuario."
+    try:
+        user_id = int(raw_user_id)
+    except (TypeError, ValueError):
+        return "Error de Seguridad: Identificador de usuario inválido."
 
     valid_statuses = ["active", "paused", "archived"]
     if new_status not in valid_statuses:

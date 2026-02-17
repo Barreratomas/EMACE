@@ -12,13 +12,6 @@ def _safe_import_aiosmtplib():
     except Exception:
         return None
 
-def _safe_import_telegram():
-    try:
-        from telegram import Bot  # type: ignore
-        return Bot
-    except Exception:
-        return None
-
 def _send_email(to: List[str], subject: str, body: str) -> Tuple[bool, str]:
     if not settings.SMTP_ENABLED:
         return False, "smtp_disabled"
@@ -50,21 +43,7 @@ def _send_email(to: List[str], subject: str, body: str) -> Tuple[bool, str]:
         return True, "sent"
     except Exception as e:
         return False, f"smtp_error:{str(e)}"
-
-def _send_telegram(text: str) -> Tuple[bool, str]:
-    if not settings.TELEGRAM_ENABLED:
-        return False, "telegram_disabled"
-    if not (settings.TELEGRAM_BOT_TOKEN and settings.TELEGRAM_DEFAULT_CHAT_ID):
-        return False, "telegram_not_configured"
-    Bot = _safe_import_telegram()
-    if Bot is None:
-        return False, "telegram_library_missing"
-    try:
-        bot = Bot(token=settings.TELEGRAM_BOT_TOKEN)
-        bot.send_message(chat_id=settings.TELEGRAM_DEFAULT_CHAT_ID, text=text)
-        return True, "sent"
-    except Exception as e:
-        return False, f"telegram_error:{str(e)}"
+ 
 
 def _extract_kv(detail: str, key: str) -> Optional[str]:
     m = re.search(rf"{key}=([^\|]+)", detail)
@@ -175,16 +154,12 @@ def dispatch_notifications(session: Session) -> int:
         email_ok, email_msg = _send_email(recipients, subject, body) if recipients else (False, "no_recipients")
         if email_ok:
             channels.append("email")
-        telegram_text = f"{subject}\n\n{body}"
-        tg_ok, tg_msg = _send_telegram(telegram_text)
-        if tg_ok:
-            channels.append("telegram")
-        result = "sent" if (email_ok or tg_ok) else "dry_run"
+        result = "sent" if email_ok else "dry_run"
         log = AuditLog(
             user_id=ev.user_id,
             agent_name="Notifier",
             action="notification_sent",
-            details=f"action={action}|{dedup_key}|channels={channels}|email={email_msg}|telegram={tg_msg}|recipients={','.join(recipients)}",
+            details=f"action={action}|{dedup_key}|channels={channels}|email={email_msg}|recipients={','.join(recipients)}",
             timestamp=datetime.now(timezone.utc),
         )
         session.add(log)

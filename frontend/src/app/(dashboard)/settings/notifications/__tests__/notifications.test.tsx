@@ -28,7 +28,7 @@ describe('NotificationCenterPage', () => {
 
   it('renders notifications correctly', () => {
     render(<NotificationCenterPage />);
-    expect(screen.getByText(/CENTRO_DE_NOTIFICACIONES/i)).toBeInTheDocument();
+    expect(screen.getByText(/Centro de Notificaciones/i)).toBeInTheDocument();
     expect(screen.getByText(/Test Info/i)).toBeInTheDocument();
     expect(screen.getByText(/Test Success/i)).toBeInTheDocument();
   });
@@ -53,7 +53,7 @@ describe('NotificationCenterPage', () => {
 
   it('calls markDone when clicking the action button', () => {
     render(<NotificationCenterPage />);
-    const markButton = screen.getByText(/Marcar/i);
+    const markButton = screen.getByTitle(/Marcar como resuelto/i);
     fireEvent.click(markButton);
     expect(mockMarkDone).toHaveBeenCalledWith('1');
   });

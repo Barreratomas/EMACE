@@ -89,9 +89,9 @@ pluggy==1.6.0
 portalocker==3.2.0
 propcache==0.4.1
 protobuf==6.33.5
-psycopg==3.3.2
 psycopg-pool==3.3.0
-psycopg2-binary==2.9.11
+psycopg[binary]==3.3.2
+
 pyarrow==23.0.0
 pyasn1==0.6.2
 pycparser==3.0
@@ -108,6 +108,7 @@ python-dotenv==1.2.1
 python-jose==3.5.0
 python-multipart==0.0.22
 python-telegram-bot==22.6
+telethon==1.38.1
 pytz==2025.2
 pywin32==311
 PyYAML==6.0.3
@@ -156,3 +157,5 @@ wrapt==2.1.1
 xxhash==3.6.0
 yarl==1.22.0
 zstandard==0.25.0
+telethon==1.38.1
+prometheus-client==0.21.1

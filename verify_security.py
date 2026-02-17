@@ -1,32 +1,48 @@
-import psycopg2
 import os
-import urllib.parse
 from dotenv import load_dotenv
+from sqlmodel import Session, select
+from app.core.database.session import engine
+from app.core.database.models import VendorTelegramIntegration
+from app.core.security import decrypt_secret_with_key, encrypt_secret_with_key
 
-load_dotenv()
 
-print("🔒 Verificando seguridad de la Base de Datos...")
+def verify_config() -> None:
+    load_dotenv()
+    secret_key = os.getenv("SECRET_KEY") or ""
+    if not secret_key or len(secret_key) < 32:
+        print("SECRET_KEY débil o no configurada (se recomienda longitud >= 32 caracteres).")
+    else:
+        print("SECRET_KEY configurada con longitud adecuada.")
 
-# 1. Probar con las credenciales seguras del .env
-url = os.getenv("DATABASE_URL")
-# Parsear para manejar correctamente la contraseña con '!'
-if "SecurePass123!" in url and ":" in url and "@" in url:
-    # Reconstruir URL con encoding seguro si es necesario, 
-    # aunque psycopg2 suele manejarlo bien si está completo.
-    pass
 
-try:
-    print(f"🔄 Intentando conectar como 'admin'...")
-    conn = psycopg2.connect(url)
-    print("✅ ¡ÉXITO! Conexión SEGURA establecida.")
-    print("   Usuario: admin")
-    print("   Puerto: 5433 (Evadiendo conflicto)")
-    conn.close()
-except Exception as e:
-    print(f"❌ Falló la conexión segura: {e}")
-    print("\n⚠️ IMPORTANTE: ¿Reiniciaste el contenedor borrando el volumen?")
-    print("Como cambiamos de usuario 'postgres' a 'admin', la base de datos antigua")
-    print("debe ser destruida para que se cree la nueva con el usuario correcto.")
-    print("\nEjecuta en WSL:")
-    print("   docker compose down -v")
-    print("   docker compose up -d")
+def rotate_telegram_secrets() -> None:
+    load_dotenv()
+    old_key = os.getenv("OLD_SECRET_KEY")
+    new_key = os.getenv("NEW_SECRET_KEY")
+    if not old_key or not new_key:
+        print("Debes definir OLD_SECRET_KEY y NEW_SECRET_KEY en el entorno para rotar secretos.")
+        return
+    if old_key == new_key:
+        print("OLD_SECRET_KEY y NEW_SECRET_KEY no pueden ser iguales.")
+        return
+    count = 0
+    failed = 0
+    with Session(engine) as session:
+        integrations = session.exec(select(VendorTelegramIntegration)).all()
+        for integration in integrations:
+            try:
+                plain = decrypt_secret_with_key(integration.bot_token_encrypted, old_key)
+                integration.bot_token_encrypted = encrypt_secret_with_key(plain, new_key)
+                session.add(integration)
+                count += 1
+            except Exception:
+                failed += 1
+        session.commit()
+    print(f"Rotación de secretos completada. Actualizados: {count}, fallidos: {failed}.")
+
+
+if __name__ == "__main__":
+    print("Verificando configuración de seguridad...")
+    verify_config()
+    print("Ejecutando rotación de secretos de Telegram (si se configuraron claves)...")
+    rotate_telegram_secrets()

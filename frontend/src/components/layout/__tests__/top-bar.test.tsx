@@ -33,26 +33,23 @@ describe('TopBar component', () => {
 
   it('renders correctly with default values', () => {
     render(<TopBar />);
-    expect(screen.getByText(/ADMIN_USER_01/i)).toBeInTheDocument();
+    expect(screen.getByText(/AD_01/i)).toBeInTheDocument();
     expect(screen.getByText(/CPU:/i)).toBeInTheDocument();
     expect(screen.getByText(/12%/i)).toBeInTheDocument();
   });
 
   it('toggles theme when clicking the theme button', () => {
     render(<TopBar />);
-    const themeButton = screen.getByLabelText(/Cambiar tema/i);
+    const themeButton = screen.getByLabelText(/Toggle theme/i);
     
-    // Default should be dark (no data-theme attribute or 'dark' in localStorage)
-    expect(document.documentElement.getAttribute('data-theme')).toBeNull();
+    expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
 
-    // Toggle to light
     fireEvent.click(themeButton);
     expect(document.documentElement.getAttribute('data-theme')).toBe('light');
     expect(window.localStorage.getItem('theme')).toBe('light');
 
-    // Toggle back to dark
     fireEvent.click(themeButton);
-    expect(document.documentElement.getAttribute('data-theme')).toBeNull();
+    expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
     expect(window.localStorage.getItem('theme')).toBe('dark');
   });
 });

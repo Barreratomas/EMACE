@@ -3,7 +3,8 @@ from datetime import datetime, timezone
 from sqlmodel import Session, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-from app.core.database.models import User, Role, RefreshToken
+from app.core.database.models import User, Role, RefreshToken, IAMPolicy
+from sqlmodel import select as sql_select
 
 class AuthRepository:
     # --- User Methods ---
@@ -50,6 +51,35 @@ class AuthRepository:
 
     async def get_all_roles(self, session: AsyncSession) -> List[Role]:
         query = select(Role)
+        result = await session.execute(query)
+        return result.scalars().all()
+
+    # --- IAM Users & Policies ---
+    async def get_users_by_parent(self, session: AsyncSession, parent_id: int) -> List[User]:
+        query = select(User).where(User.parent_id == parent_id)
+        result = await session.execute(query)
+        return result.scalars().all()
+
+    async def get_child_user_by_id(self, session: AsyncSession, parent_id: int, child_id: int) -> Optional[User]:
+        query = select(User).where(User.id == child_id, User.parent_id == parent_id)
+        result = await session.execute(query)
+        return result.scalars().first()
+
+    async def get_policy_by_name(self, session: AsyncSession, name: str) -> Optional[IAMPolicy]:
+        query = sql_select(IAMPolicy).where(IAMPolicy.name == name)
+        result = await session.execute(query)
+        return result.scalars().first()
+
+    async def create_policy(self, session: AsyncSession, policy: IAMPolicy) -> IAMPolicy:
+        session.add(policy)
+        await session.commit()
+        await session.refresh(policy)
+        return policy
+
+    async def get_policies_by_names(self, session: AsyncSession, names: List[str]) -> List[IAMPolicy]:
+        if not names:
+            return []
+        query = sql_select(IAMPolicy).where(IAMPolicy.name.in_(names))
         result = await session.execute(query)
         return result.scalars().all()
 

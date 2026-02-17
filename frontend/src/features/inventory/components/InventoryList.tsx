@@ -3,12 +3,14 @@
 import { useMemo, useState } from 'react';
 import { Product } from '../types';
 import { deleteProduct, adjustStock, bulkUpdateProductStatus } from '../actions/inventory';
-import { Plus, Edit, Trash2, Package, Search, AlertTriangle, CheckCircle, PauseCircle, Archive, MoreHorizontal, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { Plus, Edit, Trash2, Package, Search, AlertTriangle, CheckCircle, PauseCircle, Archive, MoreHorizontal, ArrowUpRight, ArrowDownRight, Upload } from 'lucide-react';
 import ProductForm from './ProductForm';
+import BulkUpload from './BulkUpload';
 import { Button } from '@/components/ui/Button';
 
 export default function InventoryList({ initialProducts }: { initialProducts: Product[] }) {
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isBulkOpen, setIsBulkOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | undefined>(undefined);
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'paused' | 'archived'>('all');
   const [typeFilter, setTypeFilter] = useState<'all' | 'physical' | 'service'>('all');
@@ -77,14 +79,33 @@ export default function InventoryList({ initialProducts }: { initialProducts: Pr
           <h1 className="text-4xl font-extrabold tracking-tight font-display">Inventario Central</h1>
           <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Gestione y supervise los activos críticos de la infraestructura.</p>
         </div>
-        <Button
-          variant="cyber"
-          onClick={() => { setEditingProduct(undefined); setIsFormOpen(true); }}
-        >
-          <Plus size={18} />
-          Registrar Activo
-        </Button>
+        <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            onClick={() => setIsBulkOpen(true)}
+            className="hidden md:flex"
+          >
+            <Upload size={18} />
+            Carga Masiva
+          </Button>
+          <Button
+            variant="cyber"
+            onClick={() => { setEditingProduct(undefined); setIsFormOpen(true); }}
+          >
+            <Plus size={18} />
+            Registrar Activo
+          </Button>
+        </div>
       </div>
+
+      {isBulkOpen && (
+        <BulkUpload 
+          onClose={() => setIsBulkOpen(false)}
+          onSuccess={() => {
+            setIsBulkOpen(false);
+          }}
+        />
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         {/* Filters Sidebar */}

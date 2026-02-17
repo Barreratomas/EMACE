@@ -155,3 +155,11 @@ Aquí podrás:
 *   **Error "ModuleNotFoundError"**: Te falta instalar librerías. Ejecuta: `pip install -r requirements.txt`
 *   **El bot no responde**: Revisa que tu `TELEGRAM_BOT_TOKEN` en el archivo `.env` sea correcto.
 *   **Docker no conecta**: Asegúrate de que la aplicación Docker Desktop esté abierta y con las luces en verde.
+
+---
+
+## 7. Playbook rápido de gestión del Bot de Telegram
+
+- Usa **Pausar bot** cuando detectes incidencias, abuso o necesites mantenimiento.
+- Usa **Reanudar bot** cuando hayas solucionado el problema y quieras volver a atender chats.
+- Usa **Eliminar bot** solo si quieres cortar definitivamente el canal (se conserva el historial interno para auditoría, pero el bot deja de recibir ni responder mensajes).

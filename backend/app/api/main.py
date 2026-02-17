@@ -10,10 +10,21 @@ from fastapi.exceptions import RequestValidationError
 from app.api.v1.api import api_router
 from app.core.rate_limit import limiter
 from app.core.config import settings
-from app.services.telegram import telegram_service
 import sys
 import asyncio
 import logging
+from app.core.security import decode_token
+from app.core.database.session import engine
+from sqlmodel import Session, select
+from app.core.database.models import VendorAccessState, User, VendorMtprotoSession
+from datetime import datetime, timezone
+from sqlmodel import select
+from app.core.telegram_mtproto import mtproto_manager
+from app.core.checkpoint import get_postgres_checkpointer
+from app.graph.workflow import workflow as graph
+from langchain_core.messages import HumanMessage, AIMessage
+from app.core.database.session import get_async_sessionmaker
+from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 
 logger = logging.getLogger(__name__)
 
@@ -64,15 +75,77 @@ async def general_exception_handler(request: Request, exc: Exception):
 @app.on_event("startup")
 async def startup_event():
     """Eventos al iniciar la aplicación."""
-    if settings.TELEGRAM_ENABLED or settings.TELEGRAM_BOT_TOKEN:
-        logger.info("Initializing Telegram Service...")
-        asyncio.create_task(telegram_service.start())
+    # Observabilidad mínima para despliegue de MP
+    if settings.MP_WEBHOOK_URL:
+        logger.info({"event": "startup.mp.webhook_url", "url": settings.MP_WEBHOOK_URL, "endpoint": "/api/v1/billing/webhooks/mp"})
+    else:
+        logger.warning({"event": "startup.mp.webhook_url.missing", "endpoint": "/api/v1/billing/webhooks/mp"})
+    # Iniciar daemon MTProto si está habilitado
+    if settings.TELEGRAM_MTPROTO_ENABLED and not settings.TELEGRAM_MTPROTO_KILL_SWITCH:
+        from app.core.botfather_orchestrator import botfather_orchestrator, BOTFATHER_ID
+
+        async def mtproto_handler(vendor_id: int, text: str, meta: dict) -> None:
+            chat_id = meta.get("chat_id")
+            if not chat_id:
+                return
+            chat_username = str(meta.get("chat_username") or "").lower()
+            is_botfather = str(chat_id) == str(BOTFATHER_ID) or chat_username == "botfather"
+            if is_botfather:
+                if botfather_orchestrator.has_active(vendor_id):
+                    try:
+                        await botfather_orchestrator.on_botfather_message(vendor_id, text, meta)
+                    except Exception as e:
+                        logger.error(
+                            {
+                                "event": "mtproto.botfather.handler.error",
+                                "vendor_id": vendor_id,
+                                "error": str(e)[:200],
+                            }
+                        )
+                return
+            logger.info(
+                {
+                    "event": "mtproto.message.ignored_non_botfather",
+                    "vendor_id": vendor_id,
+                    "chat_id": str(chat_id),
+                    "chat_username": chat_username or None,
+                }
+            )
+
+        mtproto_manager.set_handler(mtproto_handler)
+        stop = False
+        async def mtproto_loop():
+            nonlocal stop
+            async_session = get_async_sessionmaker()
+            while not stop:
+                try:
+                    async with async_session() as db:
+                        result = await db.execute(select(VendorMtprotoSession).where(VendorMtprotoSession.enabled == True))
+                        rows = result.scalars().all()
+                        for rec in rows:
+                            await mtproto_manager.ensure_connected(rec.vendor_id)
+                except Exception as e:
+                    logger.warning({"event": "mtproto.loop.error", "error": str(e)[:200]})
+                await asyncio.sleep(20)
+        app.state.mtproto_stop_flag = lambda: setattr(sys.modules[__name__], "stop", True)
+        app.state.mtproto_task = asyncio.create_task(mtproto_loop())
 
 @app.on_event("shutdown")
 async def shutdown_event():
     """Eventos al cerrar la aplicación."""
-    logger.info("Shutting down Telegram Service...")
-    await telegram_service.stop()
+    logger.info("Shutting down application...")
+    # Apagar daemon MTProto si estaba en ejecución
+    task = getattr(app.state, "mtproto_task", None)
+    if task:
+        task.cancel()
+        try:
+            await task
+        except Exception:
+            pass
+    try:
+        await mtproto_manager.shutdown()
+    except Exception:
+        pass
 
 # Configuración CSRF
 class CsrfSettings(settings.__class__):
@@ -91,6 +164,38 @@ def csrf_protect_exception_handler(request: Request, exc: CsrfProtectError):
 # Middleware para Headers de Seguridad (Optimizado para evitar problemas de concurrencia)
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
+    # Cargar contexto de acceso del vendor (best-effort, no bloqueante)
+    try:
+        auth = request.headers.get("Authorization")
+        if auth and auth.lower().startswith("bearer "):
+            token = auth.split(" ", 1)[1]
+            payload = decode_token(token)
+            sub = payload.get("sub")
+            if sub:
+                with Session(engine) as db:
+                    user = db.exec(select(User).where(User.id == int(sub))).first()
+                    if user:
+                        vendor_id = user.parent_id if user.parent_id is not None else user.id
+                        state = db.exec(select(VendorAccessState).where(VendorAccessState.vendor_id == vendor_id)).first()
+                        if state:
+                            now = datetime.now(timezone.utc)
+                            valid = True
+                            if state.access_mode == "lifetime":
+                                valid = True
+                            elif state.valid_until:
+                                valid = state.valid_until > now
+                            else:
+                                valid = False
+                            request.state.vendor_access = {
+                                "vendor_id": vendor_id,
+                                "access_mode": state.access_mode,
+                                "source": state.source,
+                                "valid_until": state.valid_until,
+                                "valid": valid
+                            }
+    except Exception:
+        # Silencioso para no bloquear la request si algo falla
+        pass
     response = await call_next(request)
     response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     response.headers["X-Frame-Options"] = "DENY"
@@ -127,6 +232,12 @@ app.include_router(api_router, prefix=settings.API_V1_STR)
 @limiter.limit(settings.RATE_LIMIT_HEALTH)
 def health_check(request: Request):
     return {"status": "ok", "version": settings.PROJECT_VERSION}
+
+
+@app.get("/metrics")
+async def metrics():
+    data = generate_latest()
+    return Response(content=data, media_type=CONTENT_TYPE_LATEST)
 
 if __name__ == "__main__":
     import uvicorn
