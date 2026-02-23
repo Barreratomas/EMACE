@@ -1,7 +1,9 @@
 from typing import List, Optional
 import io
+import csv
 import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, UploadFile, File, status
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database.session import get_async_session
@@ -135,10 +137,8 @@ async def import_products(
         else:
             df = pd.read_excel(io.BytesIO(contents))
 
-        # Normalizar nombres de columnas
         df.columns = [c.strip().lower() for c in df.columns]
 
-        # Mapeo de columnas requeridas
         required_cols = {'name', 'category', 'price'}
         missing_cols = required_cols - set(df.columns)
         if missing_cols:
@@ -147,15 +147,12 @@ async def import_products(
                 detail=f"Faltan columnas requeridas: {', '.join(missing_cols)}"
             )
 
-        # Preparar resultados
         preview_data = []
         imported_count = 0
         updated_count = 0
         skipped_count = 0
         errors = []
 
-        # Obtener productos existentes para validación de duplicados (por nombre)
-        # En un sistema real, usaríamos SKU o un identificador único externo.
         tenant_id = get_tenant_owner_id(current_user)
         existing_products_query = select(Product).where(Product.user_id == tenant_id)
         existing_result = await session.execute(existing_products_query)
@@ -163,7 +160,6 @@ async def import_products(
 
         for index, row in df.iterrows():
             try:
-                # Sanitización
                 name = str(row['name']).strip()
                 category = str(row['category']).strip()
                 try:
@@ -174,10 +170,12 @@ async def import_products(
 
                 description = str(row.get('description', '')).strip()
                 p_type = str(row.get('type', 'physical')).lower().strip()
-                if p_type not in ['physical', 'service']: p_type = 'physical'
+                if p_type not in ['physical', 'service']:
+                    p_type = 'physical'
                 
                 status_val = str(row.get('status', 'active')).lower().strip()
-                if status_val not in ['active', 'paused', 'archived']: status_val = 'active'
+                if status_val not in ['active', 'paused', 'archived']:
+                    status_val = 'active'
 
                 stock = None
                 if p_type == 'physical':
@@ -194,7 +192,6 @@ async def import_products(
 
                 sla = str(row.get('sla', '')) if p_type == 'service' else None
 
-                # Detectar conflicto
                 existing_p = existing_map.get(name.lower())
                 
                 if dry_run:
@@ -214,7 +211,6 @@ async def import_products(
                         skipped_count += 1
                         continue
                     elif conflict_strategy == "update":
-                        # Actualizar producto existente
                         existing_p.category = category
                         existing_p.price = price
                         existing_p.description = description
@@ -226,7 +222,6 @@ async def import_products(
                         session.add(existing_p)
                         updated_count += 1
                 else:
-                    # Crear nuevo producto
                     new_product = Product(
                         user_id=current_user.id,
                         name=name,
@@ -257,7 +252,9 @@ async def import_products(
             "preview": preview_data if dry_run else None,
             "errors": errors if errors else None
         }
-
+    except HTTPException:
+        await session.rollback()
+        raise
     except Exception as e:
         await session.rollback()
         raise HTTPException(
@@ -266,6 +263,80 @@ async def import_products(
         )
     finally:
         await file.close()
+
+
+@router.get("/import/template")
+@limiter.limit(settings.RATE_LIMIT_READ_PRODUCTS)
+async def download_import_template(
+    request: Request,
+    format: str = Query("csv", pattern="^(csv|xlsx)$"),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Devuelve una plantilla de ejemplo para la carga masiva de productos.
+    Soporta formatos CSV y Excel (.xlsx).
+    """
+    headers = [
+        "name",
+        "category",
+        "price",
+        "stock",
+        "description",
+        "type",
+        "status",
+        "min_stock_threshold",
+        "sla",
+    ]
+
+    sample_rows = [
+        [
+            "Laptop HP",
+            "Hardware",
+            "1200",
+            "15",
+            "Laptop de alto rendimiento",
+            "physical",
+            "active",
+            "5",
+            "",
+        ],
+        [
+            "Consultoría Seguridad",
+            "Servicios",
+            "1500",
+            "0",
+            "Auditoría de seguridad informática",
+            "service",
+            "paused",
+            "",
+            "48h report",
+        ],
+    ]
+
+    if format == "xlsx":
+        buffer = io.BytesIO()
+        df = pd.DataFrame(sample_rows, columns=headers)
+        df.to_excel(buffer, index=False)
+        buffer.seek(0)
+        return StreamingResponse(
+            buffer,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={
+                "Content-Disposition": 'attachment; filename="plantilla_inventario.xlsx"'
+            },
+        )
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(headers)
+    for row in sample_rows:
+        writer.writerow(row)
+    contents = output.getvalue().encode("utf-8")
+    return StreamingResponse(
+        io.BytesIO(contents),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="plantilla_inventario.csv"'},
+    )
 
 @router.get("/products/stock/low")
 @limiter.limit(settings.RATE_LIMIT_READ_PRODUCTS)

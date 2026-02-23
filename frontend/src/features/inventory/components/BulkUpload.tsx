@@ -4,6 +4,7 @@ import { useState, useRef } from 'react';
 import { X, Upload, FileText, CheckCircle2, AlertCircle, Loader2, ArrowRight, ArrowLeft, Database, AlertTriangle } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/Button';
+import api from '@/lib/api';
 import { importProducts } from '../actions/inventory';
 
 interface BulkUploadProps {
@@ -94,8 +95,30 @@ export default function BulkUpload({ onClose, onSuccess }: BulkUploadProps) {
     }
   };
 
+  const handleDownloadTemplate = async (format: 'csv' | 'xlsx') => {
+    try {
+      const response = await api.get('/inventory/import/template', {
+        params: { format },
+        responseType: 'blob',
+      });
+
+      const blob = new Blob([response.data]);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `plantilla_inventario.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (error: any) {
+      console.error('Error al descargar plantilla de inventario:', error);
+      toast.error('Error al descargar la plantilla', 'ERROR_DESCARGA_PLANTILLA');
+    }
+  };
+
   return (
-    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-300">
+    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-999 animate-in fade-in duration-300">
       <div className="panel-industrial p-0 w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col border-0 shadow-2xl">
         {/* Header */}
         <div className="border-b border-border-ui/50 p-6 flex justify-between items-center bg-background/50 backdrop-blur-md">
@@ -207,6 +230,29 @@ export default function BulkUpload({ onClose, onSuccess }: BulkUploadProps) {
                   <p className="text-[10px] text-slate-500 leading-relaxed italic">
                     * El sistema normalizará automáticamente los encabezados a minúsculas y eliminará espacios adicionales.
                   </p>
+                  <div className="mt-4 flex flex-col gap-3">
+                    <p className="text-[10px] text-slate-500">
+                      Puedes descargar una plantilla de ejemplo para completar tu catálogo.
+                    </p>
+                    <div className="flex flex-col gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDownloadTemplate('csv')}
+                      >
+                        <FileText size={14} className="mr-1" />
+                        Plantilla CSV
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDownloadTemplate('xlsx')}
+                      >
+                        <FileText size={14} className="mr-1" />
+                        Plantilla XLSX
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

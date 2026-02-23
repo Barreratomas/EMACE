@@ -13,6 +13,8 @@ from app.core.config import settings
 import sys
 import asyncio
 import logging
+import os
+from logging.handlers import TimedRotatingFileHandler
 from app.core.security import decode_token
 from app.core.database.session import engine
 from sqlmodel import Session, select
@@ -25,6 +27,35 @@ from app.graph.workflow import workflow as graph
 from langchain_core.messages import HumanMessage, AIMessage
 from app.core.database.session import get_async_sessionmaker
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+
+def _setup_logging():
+    level = getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO)
+    root = logging.getLogger()
+    root.setLevel(level)
+    log_dir = settings.LOG_DIR
+    log_file = settings.LOG_FILE
+    os.makedirs(log_dir, exist_ok=True)
+    filepath = os.path.join(log_dir, log_file)
+    handler = TimedRotatingFileHandler(
+        filename=filepath,
+        when=settings.LOG_ROTATE_WHEN,
+        backupCount=settings.LOG_BACKUP_COUNT,
+        encoding="utf-8",
+        utc=False,
+    )
+    if settings.LOG_JSON:
+        fmt = '{"ts":"%(asctime)s","level":"%(levelname)s","name":"%(name)s","pid":%(process)d,"thread":"%(threadName)s","msg":%(message)s}'
+    else:
+        fmt = "%(asctime)s %(levelname)s %(name)s %(process)d %(threadName)s %(message)s"
+    formatter = logging.Formatter(fmt=fmt, datefmt="%Y-%m-%dT%H:%M:%S%z")
+    handler.setFormatter(formatter)
+    root.addHandler(handler)
+    for name in ("uvicorn", "uvicorn.error", "uvicorn.access"):
+        lg = logging.getLogger(name)
+        lg.setLevel(level)
+        lg.addHandler(handler)
+
+_setup_logging()
 
 logger = logging.getLogger(__name__)
 

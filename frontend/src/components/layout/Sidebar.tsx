@@ -38,7 +38,7 @@ export default function Sidebar() {
     .find(item => pathname.startsWith(item.href));
 
   return (
-    <aside className="w-64 panel-industrial rounded-none! border-y-0! border-l-0! flex flex-col h-screen sticky top-0 z-50">
+    <aside className="w-64 panel-industrial rounded-none! border-y-0! border-l-0! flex flex-col h-screen sticky top-0 z-10">
       {/* Logo Area */}
       <div className="p-8 border-b border-border-ui/50 relative overflow-hidden group">
         <div className="flex items-center gap-4 relative z-10">

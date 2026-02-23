@@ -3,30 +3,33 @@
 import React, { useState, useRef } from 'react';
 import { Button } from '@/components/ui/Button';
 import { uploadKnowledgeDocument, deleteKnowledgeDocument } from '../actions/knowledge';
-import { KnowledgeDocument } from '../types';
-import { 
-  FileUp, 
-  FileText, 
-  Trash2, 
-  Loader2, 
-  CheckCircle2, 
+import { KnowledgeDocument, KnowledgeUsage } from '../types';
+import {
+  FileUp,
+  FileText,
+  Trash2,
+  Loader2,
+  CheckCircle2,
   AlertCircle,
   FileCode,
   Table
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { IndustrialProgress } from '@/components/ui/IndustrialProgress';
 
 interface KnowledgeManagerProps {
   initialDocuments: KnowledgeDocument[];
+  initialUsage: KnowledgeUsage | null;
 }
 
-export function KnowledgeManager({ initialDocuments }: KnowledgeManagerProps) {
+export function KnowledgeManager({ initialDocuments, initialUsage }: KnowledgeManagerProps) {
   const [documents, setDocuments] = useState<KnowledgeDocument[]>(initialDocuments);
   const [isUploading, setIsUploading] = useState(false);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [usage, setUsage] = useState<KnowledgeUsage | null>(initialUsage);
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -64,8 +67,8 @@ export function KnowledgeManager({ initialDocuments }: KnowledgeManagerProps) {
 
     if (result.success) {
       setMessage({ type: 'success', text: `Archivo "${file.name}" procesado correctamente.` });
-      // Refresh local list (though Server Actions should revalidate, we optimistic update or wait for refresh)
-      // For simplicity in this demo, we rely on revalidatePath + manual refresh or just show success
+      // La lista y el uso se actualizarán al recargar por revalidatePath,
+      // aquí solo ajustamos el mensaje.
     } else {
       setMessage({ type: 'error', text: result.error || 'Error al subir el archivo.' });
     }
@@ -80,6 +83,13 @@ export function KnowledgeManager({ initialDocuments }: KnowledgeManagerProps) {
     if (result.success) {
       setDocuments(docs => docs.filter(d => d.name !== sourceName));
       setMessage({ type: 'success', text: 'Documento eliminado.' });
+      if (usage) {
+        setUsage({
+          ...usage,
+          // No recalculamos con precisión aquí; se actualizará en el próximo render del servidor.
+          // Mantenemos la estructura para evitar inconsistencias en UI.
+        });
+      }
     } else {
       setMessage({ type: 'error', text: result.error || 'Error al eliminar.' });
     }
@@ -104,6 +114,48 @@ export function KnowledgeManager({ initialDocuments }: KnowledgeManagerProps) {
           <p className="text-slate-500 dark:text-slate-400 text-sm">
             Sube documentos técnicos, manuales o especificaciones para que tus agentes puedan consultarlos durante las operaciones.
           </p>
+          {usage && (
+            <div className="mt-3 space-y-1.5 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="font-mono uppercase tracking-wider text-[10px] text-slate-500 dark:text-slate-400">
+                  Uso de memoria
+                </span>
+                <span className="font-mono text-[10px] text-slate-600 dark:text-slate-300">
+                  {usage.used_mb.toFixed(2)} MB / {usage.max_mb} MB
+                </span>
+              </div>
+              <IndustrialProgress
+                value={usage.used_bytes}
+                max={usage.max_bytes}
+                segments={12}
+                variant={usage.usage_ratio >= 0.8 ? 'safety' : 'primary'}
+              />
+            </div>
+          )}
+          <div className="mt-3 text-xs text-slate-600 dark:text-slate-300 space-y-2">
+            <p className="font-semibold uppercase tracking-wider text-[11px] text-slate-500 dark:text-slate-400">
+              Recomendado subir
+            </p>
+            <ul className="list-disc list-inside space-y-1">
+              <li>FAQs y guías de uso de tus productos o servicios.</li>
+              <li>Procedimientos operativos (SOP), políticas y flujos internos.</li>
+              <li>Respuestas frecuentes a clientes, scripts de soporte y ventas.</li>
+            </ul>
+            <p className="text-[11px] text-slate-400 dark:text-slate-500">
+              Evita subir datos sensibles (DNI, tarjetas, contraseñas). Prioriza documentos claros y actualizados para que las respuestas sean fiables.
+            </p>
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className="mt-1"
+            >
+              <a href="/knowledge-template-es.md" download>
+                <FileText className="w-3 h-3" />
+                Descargar plantilla de ejemplo
+              </a>
+            </Button>
+          </div>
           
           <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs flex gap-3">
             <AlertCircle className="w-4 h-4 shrink-0" />
@@ -150,7 +202,7 @@ export function KnowledgeManager({ initialDocuments }: KnowledgeManagerProps) {
                 {isUploading ? 'Procesando Documento...' : 'Haz clic o arrastra un archivo'}
               </p>
               <p className="text-xs text-slate-500 mt-1">
-                Soporta PDF, Markdown, TXT y CSV (Max 10MB)
+                Soporta PDF, Markdown, TXT y CSV (Max 10MB por archivo, hasta 50MB por vendor)
               </p>
             </div>
           </div>

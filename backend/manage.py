@@ -114,12 +114,12 @@ def run_migrate(args):
                 conn.execute(text("CREATE INDEX IF NOT EXISTS checkpoint_writes_thread_id_idx ON checkpoint_writes(thread_id);"))
     except Exception as e:
         print(f"⚠️  Preflight de tablas checkpoint omitido: {e}")
-    run_command("alembic upgrade head")
+    run_command("alembic upgrade heads")
 
 def makemigrations(args):
     """Genera un nuevo script de migración basado en los cambios de los modelos."""
     message = args.message if args.message else "Migración generada automáticamente"
-    run_command("alembic upgrade head")
+    run_command("alembic upgrade heads")
     run_command(f'alembic revision --autogenerate -m "{message}"')
 
 def migrate_down(args):
@@ -134,7 +134,11 @@ def migrate_status(args):
     run_command("alembic current")
 
 def run_seed(args):
-    """Carga la base de datos con datos iniciales de prueba."""
+    run_command("python seed_data.py all")
+
+def reset_db(args):
+    run_command("alembic downgrade base")
+    run_command("alembic upgrade heads")
     run_command("python seed_data.py all")
 
 def start_scheduler(args):
@@ -171,6 +175,7 @@ def main():
     subparsers.add_parser("migrate-status", help="Mostrar historial y versión actual de migraciones")
     
     subparsers.add_parser("seed", help="Cargar base de datos con datos de prueba")
+    subparsers.add_parser("reset-db", help="Reiniciar base de datos y recargar datos iniciales")
     subparsers.add_parser("scheduler", help="Iniciar planificador de tareas en segundo plano")
     subparsers.add_parser("test", help="Ejecutar pruebas de verificación de API")
     subparsers.add_parser("install", help="Instalar dependencias de requirements.txt")
@@ -187,6 +192,7 @@ def main():
         "migrate-down": migrate_down,
         "migrate-status": migrate_status,
         "seed": run_seed,
+        "reset-db": reset_db,
         "scheduler": start_scheduler,
         "test": run_test,
         "install": install_deps,

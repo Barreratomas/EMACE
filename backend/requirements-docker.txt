@@ -157,3 +157,5 @@ yarl==1.22.0
 zstandard==0.25.0
 telethon==1.38.1
 prometheus-client==0.21.1
+et_xmlfile==2.0.0
+openpyxl==3.1.5

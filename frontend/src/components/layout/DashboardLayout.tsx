@@ -16,7 +16,7 @@ export default function DashboardLayout({
       <Sidebar />
       <div className="flex-1 flex flex-col min-w-0 relative h-screen overflow-y-auto custom-scrollbar">
         <TopBar />
-        <main id="main-content" className="flex-1 p-4 md:p-6 relative z-10">
+        <main id="main-content" className="flex-1 p-4 md:p-6 relative z-20">
           <div className="max-w-1600px mx-auto">
             <Suspense fallback={
               <div className="flex items-center justify-center min-h-400px">

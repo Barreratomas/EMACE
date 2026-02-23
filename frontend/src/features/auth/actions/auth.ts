@@ -51,7 +51,7 @@ export async function loginAction(formData: FormData) {
   
   // Store tokens in cookies
   Cookies.set('access_token', data.access_token, { expires: 1/48 }); // 30 mins
-  Cookies.set('refresh_token', data.refresh_token, { expires: 7 }); // 7 days
+  Cookies.set('refresh_token', data.refresh_token, { expires: 15 }); // 15 days
   persistTokenClaims(data.access_token);
 
   return data;
@@ -79,7 +79,7 @@ export async function loginIamAction(formData: FormData) {
 
   const data = await res.json();
   Cookies.set('access_token', data.access_token, { expires: 1/48 });
-  Cookies.set('refresh_token', data.refresh_token, { expires: 7 });
+  Cookies.set('refresh_token', data.refresh_token, { expires: 15 });
   persistTokenClaims(data.access_token);
   return data;
 }

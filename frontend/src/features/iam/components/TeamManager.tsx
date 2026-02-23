@@ -236,7 +236,7 @@ function CreateUserModal({ onClose, onSubmit, creating }: { onClose: () => void;
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-300">
+    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-999 animate-in fade-in duration-300">
       <div className="panel-industrial p-0 w-full max-w-lg overflow-hidden border-0 shadow-2xl">
         <div className="border-b border-border-ui/50 p-6 flex justify-between items-center bg-background/50 backdrop-blur-md">
           <div className="flex items-center gap-3">

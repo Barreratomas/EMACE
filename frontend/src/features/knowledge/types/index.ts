@@ -7,3 +7,11 @@ export interface KnowledgeDocument {
 export interface IngestionResponse {
   message: string;
 }
+
+export interface KnowledgeUsage {
+  used_bytes: number;
+  used_mb: number;
+  max_bytes: number;
+  max_mb: number;
+  usage_ratio: number;
+}

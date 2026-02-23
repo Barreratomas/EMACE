@@ -55,7 +55,7 @@ export default function ProductForm({ product, onClose, onSuccess }: ProductForm
   const labelClasses = "block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5";
 
   return (
-    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-300">
+    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-[999] animate-in fade-in duration-300">
       <div className="panel-industrial p-0 w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col border-0">
         {/* Header */}
         <div className="border-b border-border-ui/50 p-6 flex justify-between items-center bg-background/50 backdrop-blur-md">

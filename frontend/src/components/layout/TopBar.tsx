@@ -43,7 +43,7 @@ export default function TopBar() {
   }
 
   return (
-    <header className="h-16 panel-industrial rounded-none! border-x-0! border-t-0! sticky top-0 z-40 px-6 flex items-center justify-between" aria-label="System navigation bar">
+    <header className="h-16 panel-industrial rounded-none! border-x-0! border-t-0! sticky top-0 z-30 px-6 flex items-center justify-between" aria-label="System navigation bar">
       {/* Search area */}
       <div className="flex items-center gap-6 flex-1">
         <div className="relative group max-w-md w-full">

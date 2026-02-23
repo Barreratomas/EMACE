@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { Bot, Cpu, Shield, Activity, Network, Database } from 'lucide-react';
 import { IndustrialProgress } from '@/components/ui/IndustrialProgress';
 import { cn } from '@/lib/utils';
+import { SectionHeader } from '@/components/ui/SectionHeader';
 
 const AGENTS = [
   {
@@ -61,36 +62,42 @@ export default function AgentsPanel() {
 
   return (
     <div className="space-y-10 animate-in fade-in duration-700">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
-        <div>
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-[10px] font-bold text-primary terminal-text tracking-[0.3em] uppercase opacity-60">
-              Multi_Agent_Control
-            </span>
-            <div className="h-px w-8 bg-primary/20" />
-          </div>
-          <h1 className="text-4xl font-extrabold tracking-tight font-display uppercase">
-            Panel de Agentes
-          </h1>
-          <p className="text-slate-500 dark:text-slate-400 text-[11px] mt-2 font-bold uppercase tracking-widest terminal-text opacity-70">
-            Supervisión operativa de los agentes EMACE y sus dominios de responsabilidad.
-          </p>
-        </div>
-        <div className="panel-industrial px-5 py-3 flex items-center gap-4 border-primary/30 bg-black/40">
-          <div className="p-2 rounded-full bg-primary/10 border border-primary/30">
-            <Shield size={18} className="text-primary" />
-          </div>
-          <div className="text-[10px] font-mono text-slate-400">
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
-              <span className="font-bold uppercase tracking-[0.2em]">AGENT_MESH_STATUS</span>
+      <SectionHeader
+        className="md:flex-row md:justify-between md:items-end gap-6"
+        rightClassName="md:justify-end"
+        left={
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-[10px] font-bold text-primary terminal-text tracking-[0.3em] uppercase opacity-60">
+                Multi_Agent_Control
+              </span>
+              <div className="h-px w-8 bg-primary/20" />
             </div>
-            <div className="mt-1 text-[9px] opacity-70">
-              {overview.online} online · {overview.busy} busy · {overview.offline} offline
+            <h1 className="text-4xl font-extrabold tracking-tight font-display uppercase">
+              Panel de Agentes
+            </h1>
+            <p className="text-slate-500 dark:text-slate-400 text-[11px] mt-2 font-bold uppercase tracking-widest terminal-text opacity-70">
+              Supervisión operativa de los agentes EMACE y sus dominios de responsabilidad.
+            </p>
+          </div>
+        }
+        right={
+          <div className="panel-industrial px-5 py-3 flex items-center gap-4 border-primary/30 bg-black/40">
+            <div className="p-2 rounded-full bg-primary/10 border border-primary/30">
+              <Shield size={18} className="text-primary" />
+            </div>
+            <div className="text-[10px] font-mono text-slate-400">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+                <span className="font-bold uppercase tracking-[0.2em]">AGENT_MESH_STATUS</span>
+              </div>
+              <div className="mt-1 text-[9px] opacity-70">
+                {overview.online} online · {overview.busy} busy · {overview.offline} offline
+              </div>
             </div>
           </div>
-        </div>
-      </div>
+        }
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-4">
@@ -221,4 +228,3 @@ export default function AgentsPanel() {
     </div>
   );
 }
-

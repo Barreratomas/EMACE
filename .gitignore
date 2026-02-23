@@ -45,6 +45,8 @@
 **/*.sqlite
 **/*.sqlite3
 **/cold_storage/
+**/logs/
+
 
 # --- Environment & Secrets (Global) ---
 **/.env

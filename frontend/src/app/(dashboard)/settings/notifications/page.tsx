@@ -4,6 +4,7 @@ import { useNotificationCenterStore } from '@/hooks/use-notifications';
 import { AlertTriangle, CheckCircle2, Info, ShieldAlert, Check, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
+import { SectionHeader } from '@/components/ui/SectionHeader';
 
 const iconByType = {
   info: Info,
@@ -22,43 +23,49 @@ export default function NotificationCenterPage() {
 
   return (
     <div className="space-y-10 animate-in fade-in duration-700">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
-        <div>
-          <h1 className="text-4xl font-extrabold tracking-tight font-display">
-            Centro de Notificaciones
-          </h1>
-          <p className="text-slate-500 dark:text-slate-400 text-sm mt-2 font-medium">
-            Historial centralizado y gestión de alertas críticas del ecosistema.
-          </p>
-        </div>
-        <div className="flex bg-background/40 backdrop-blur-md border border-border-ui/50 p-1.5 rounded-2xl shadow-sm gap-1">
-          <button
-            onClick={() => setFilter('all')}
-            className={`px-4 py-2 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all ${filter === 'all' ? 'bg-primary text-white shadow-md shadow-primary/20' : 'text-slate-500 hover:text-primary hover:bg-primary/5'}`}
-          >
-            Todos
-          </button>
-          <button
-            onClick={() => setFilter('pending')}
-            className={`px-4 py-2 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all ${filter === 'pending' ? 'bg-primary text-white shadow-md shadow-primary/20' : 'text-slate-500 hover:text-primary hover:bg-primary/5'}`}
-          >
-            Pendientes
-          </button>
-          <button
-            onClick={() => setFilter('done')}
-            className={`px-4 py-2 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all ${filter === 'done' ? 'bg-primary text-white shadow-md shadow-primary/20' : 'text-slate-500 hover:text-primary hover:bg-primary/5'}`}
-          >
-            Completadas
-          </button>
-          <div className="w-px h-6 bg-border-ui/50 my-auto mx-1" />
-          <button
-            onClick={clearAll}
-            className="px-4 py-2 rounded-xl text-[11px] font-bold uppercase tracking-wider text-rose-500 hover:bg-rose-500/10 transition-all flex items-center gap-2"
-          >
-            <Trash2 size={14} /> Limpiar
-          </button>
-        </div>
-      </div>
+      <SectionHeader
+        className="md:flex-row md:justify-between md:items-end"
+        rightClassName="md:justify-end"
+        left={
+          <div>
+            <h1 className="text-4xl font-extrabold tracking-tight font-display">
+              Centro de Notificaciones
+            </h1>
+            <p className="text-slate-500 dark:text-slate-400 text-sm mt-2 font-medium">
+              Historial centralizado y gestión de alertas críticas del ecosistema.
+            </p>
+          </div>
+        }
+        right={
+          <div className="flex flex-wrap bg-background/40 backdrop-blur-md border border-border-ui/50 p-1.5 rounded-2xl shadow-sm gap-1">
+            <button
+              onClick={() => setFilter('all')}
+              className={`px-4 py-2 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all ${filter === 'all' ? 'bg-primary text-white shadow-md shadow-primary/20' : 'text-slate-500 hover:text-primary hover:bg-primary/5'}`}
+            >
+              Todos
+            </button>
+            <button
+              onClick={() => setFilter('pending')}
+              className={`px-4 py-2 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all ${filter === 'pending' ? 'bg-primary text-white shadow-md shadow-primary/20' : 'text-slate-500 hover:text-primary hover:bg-primary/5'}`}
+            >
+              Pendientes
+            </button>
+            <button
+              onClick={() => setFilter('done')}
+              className={`px-4 py-2 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all ${filter === 'done' ? 'bg-primary text-white shadow-md shadow-primary/20' : 'text-slate-500 hover:text-primary hover:bg-primary/5'}`}
+            >
+              Completadas
+            </button>
+            <div className="w-px h-6 bg-border-ui/50 my-auto mx-1" />
+            <button
+              onClick={clearAll}
+              className="px-4 py-2 rounded-xl text-[11px] font-bold uppercase tracking-wider text-rose-500 hover:bg-rose-500/10 transition-all flex items-center gap-2"
+            >
+              <Trash2 size={14} /> Limpiar
+            </button>
+          </div>
+        }
+      />
 
       <div className="panel-industrial p-0 overflow-hidden border-0 shadow-xl">
         <div className="grid grid-cols-4 gap-0 border-b border-border-ui/50 bg-background/50 backdrop-blur-md">

@@ -1,7 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache';
-import { KnowledgeDocument } from '../types';
+import { KnowledgeDocument, KnowledgeUsage } from '../types';
 import { apiRequest } from '@/lib/server-api';
 
 export async function getKnowledgeDocuments(): Promise<KnowledgeDocument[]> {
@@ -13,6 +13,18 @@ export async function getKnowledgeDocuments(): Promise<KnowledgeDocument[]> {
   } catch (error) {
     console.error('Error fetching knowledge docs:', error);
     return [];
+  }
+}
+
+export async function getKnowledgeUsage(): Promise<KnowledgeUsage | null> {
+  try {
+    const data = await apiRequest<KnowledgeUsage>('/knowledge/usage', {
+      cache: 'no-store'
+    });
+    return data;
+  } catch (error) {
+    console.error('Error fetching knowledge usage:', error);
+    return null;
   }
 }
 

@@ -24,7 +24,8 @@ import {
 } from 'lucide-react';
 import { IndustrialProgress } from '@/components/ui/IndustrialProgress';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/Button';
+import { Button } from "@/components/ui/Button";
+import { SectionHeader } from "@/components/ui/SectionHeader";
 
 // Custom hook for safe mounting check without useEffect setState
 function useHasMounted() {
@@ -64,47 +65,61 @@ export default function AnalyticsPage() {
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-12">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 pb-8 border-b border-border-ui/50">
-        <div>
-          <div className="flex items-center gap-2 text-primary text-[11px] font-bold mb-3 uppercase tracking-[0.2em]">
-            <Activity size={14} className="animate-pulse" /> Analytics & Intelligence Control
+      {/* Header + Tabs using SectionHeader */}
+      <SectionHeader
+        className="md:flex-row md:items-center md:justify-between gap-6 pb-8 border-b border-border-ui/50"
+        rightClassName="md:justify-end"
+        left={
+          <div>
+            <div className="flex items-center gap-2 text-primary text-[11px] font-bold mb-3 uppercase tracking-[0.2em]">
+              <Activity size={14} className="animate-pulse" /> Analytics & Intelligence Control
+            </div>
+            <h1 className="text-4xl font-extrabold tracking-tight font-display uppercase">
+              Centro de Control
+            </h1>
+            <p className="text-slate-500 dark:text-slate-400 text-sm mt-1 font-mono uppercase tracking-tighter">
+              Monitoring critical infrastructure and business health metrics.
+            </p>
           </div>
-          <h1 className="text-4xl font-extrabold tracking-tight font-display uppercase">Centro de Control</h1>
-          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1 font-mono uppercase tracking-tighter">Monitoring critical infrastructure and business health metrics.</p>
-        </div>
-        <div className="flex gap-3">
-          <Button variant="outline" size="sm" className="gap-2 border-white/5 bg-white/5 hover:bg-white/10">
-            <Download size={14} /> EXPORT_DATA
-          </Button>
-          <Button variant="cyber" size="sm" className="gap-2">
-            <RefreshCw size={14} /> SYNC_REALTIME
-          </Button>
-        </div>
-      </div>
-
-      {/* Tabs Selection */}
-      <div className="flex p-1 bg-white/5 border border-white/10 rounded-xl w-fit">
-        {[
-          { id: 'system', label: 'Métricas Sistema', icon: Cpu },
-          { id: 'inventory', label: 'Estado Inventario', icon: Package },
-          { id: 'business', label: 'Dashboards Negocio', icon: BarChart3 },
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id as any)}
-            className={cn(
-              "flex items-center gap-2 px-6 py-2.5 rounded-lg text-xs font-bold uppercase tracking-widest transition-all duration-200",
-              activeTab === tab.id 
-                ? "bg-primary text-white shadow-lg shadow-primary/20" 
-                : "text-slate-500 hover:text-slate-300 hover:bg-white/5"
-            )}
-          >
-            <tab.icon size={14} />
-            {tab.label}
-          </button>
-        ))}
-      </div>
+        }
+        right={
+          <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:flex-wrap sm:justify-end">
+            <div className="flex flex-wrap p-1 bg-white/5 border border-white/10 rounded-xl">
+              {[
+                { id: 'system', label: 'Métricas Sistema', icon: Cpu },
+                { id: 'inventory', label: 'Estado Inventario', icon: Package },
+                { id: 'business', label: 'Dashboards Negocio', icon: BarChart3 },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as any)}
+                  className={cn(
+                    "flex items-center gap-2 px-4 py-2 rounded-lg text-[11px] font-bold uppercase tracking-widest transition-all duration-200",
+                    activeTab === tab.id
+                      ? "bg-primary text-white shadow-lg shadow-primary/20"
+                      : "text-slate-500 hover:text-slate-300 hover:bg-white/5"
+                  )}
+                >
+                  <tab.icon size={14} />
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2 border-white/5 bg-white/5 hover:bg-white/10"
+              >
+                <Download size={14} /> EXPORT_DATA
+              </Button>
+              <Button variant="cyber" size="sm" className="gap-2">
+                <RefreshCw size={14} /> SYNC_REALTIME
+              </Button>
+            </div>
+          </div>
+        }
+      />
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -140,16 +155,26 @@ export default function AnalyticsPage() {
           
           {activeTab === 'system' && (
             <div className="panel-industrial p-8">
-              <div className="flex items-center justify-between mb-8 pb-4 border-b border-white/5">
-                <div className="flex items-center gap-3">
-                  <Cpu className="text-primary" size={20} />
-                  <h3 className="text-lg font-bold tracking-tight uppercase">Agent_Workload_Distribution</h3>
-                </div>
-                <div className="flex gap-2">
-                  <span className="w-2 h-2 bg-primary rounded-full animate-pulse" />
-                  <span className="text-[10px] font-mono text-primary uppercase">Active_Processing</span>
-                </div>
-              </div>
+              <SectionHeader
+                className="sm:flex-row sm:items-center sm:justify-between mb-8 pb-4 border-b border-white/5"
+                rightClassName="w-full sm:w-auto justify-start sm:justify-end"
+                left={
+                  <div className="flex items-center gap-3">
+                    <Cpu className="text-primary" size={20} />
+                    <h3 className="text-lg font-bold tracking-tight uppercase">
+                      Agent_Workload_Distribution
+                    </h3>
+                  </div>
+                }
+                right={
+                  <>
+                    <span className="w-2 h-2 bg-primary rounded-full animate-pulse" />
+                    <span className="text-[10px] font-mono text-primary uppercase">
+                      Active_Processing
+                    </span>
+                  </>
+                }
+              />
 
               <div className="space-y-10">
                 {[
@@ -172,13 +197,27 @@ export default function AnalyticsPage() {
 
           {activeTab === 'inventory' && (
             <div className="panel-industrial p-8">
-              <div className="flex items-center justify-between mb-8 pb-4 border-b border-white/5">
-                <div className="flex items-center gap-3">
-                  <Package className="text-amber-500" size={20} />
-                  <h3 className="text-lg font-bold tracking-tight uppercase">Stock_Levels_By_Category</h3>
-                </div>
-                <Button variant="outline" size="sm" className="h-7 text-[9px] border-white/10">VIEW_FULL_REPORT</Button>
-              </div>
+              <SectionHeader
+                className="sm:flex-row sm:items-center sm:justify-between mb-8 pb-4 border-b border-white/5"
+                rightClassName="w-full sm:w-auto justify-start sm:justify-end"
+                left={
+                  <div className="flex items-center gap-3">
+                    <Package className="text-amber-500" size={20} />
+                    <h3 className="text-lg font-bold tracking-tight uppercase">
+                      Stock_Levels_By_Category
+                    </h3>
+                  </div>
+                }
+                right={
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-[9px] border-white/10"
+                  >
+                    VIEW_FULL_REPORT
+                  </Button>
+                }
+              />
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-12 pt-4">
                 <div className="space-y-6">
@@ -226,20 +265,28 @@ export default function AnalyticsPage() {
 
           {activeTab === 'business' && (
             <div className="panel-industrial p-8">
-              <div className="flex items-center justify-between mb-8 pb-4 border-b border-white/5">
-                <div className="flex items-center gap-3">
-                  <TrendingUp className="text-cyber-lime" size={20} />
-                  <h3 className="text-lg font-bold tracking-tight uppercase">Revenue_Growth_Analysis</h3>
-                </div>
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2 text-[10px] font-bold">
-                    <div className="w-2 h-2 bg-primary rounded-full" /> REVENUE
+              <SectionHeader
+                className="sm:flex-row sm:items-center sm:justify-between mb-8 pb-4 border-b border-white/5"
+                rightClassName="w-full sm:w-auto justify-start sm:justify-end items-center gap-4"
+                left={
+                  <div className="flex items-center gap-3">
+                    <TrendingUp className="text-cyber-lime" size={20} />
+                    <h3 className="text-lg font-bold tracking-tight uppercase">
+                      Revenue_Growth_Analysis
+                    </h3>
                   </div>
-                  <div className="flex items-center gap-2 text-[10px] font-bold">
-                    <div className="w-2 h-2 bg-blue-500 rounded-full" /> EXPENSES
-                  </div>
-                </div>
-              </div>
+                }
+                right={
+                  <>
+                    <div className="flex items-center gap-2 text-[10px] font-bold">
+                      <div className="w-2 h-2 bg-primary rounded-full" /> REVENUE
+                    </div>
+                    <div className="flex items-center gap-2 text-[10px] font-bold">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full" /> EXPENSES
+                    </div>
+                  </>
+                }
+              />
 
               <div className="h-64 flex items-end gap-3 px-4 relative">
                 {/* Grid Lines */}

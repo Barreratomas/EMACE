@@ -1,3 +1,4 @@
+from logging import WARNING
 from typing import List, Union
 from functools import lru_cache
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -9,6 +10,22 @@ class Settings(BaseSettings):
     PROJECT_DESCRIPTION: str = "API Profesional para el Ecosistema de Agentes Cognitivos"
     PROJECT_VERSION: str = "1.0.0"
     API_V1_STR: str = "/api/v1"
+
+
+    # cada nivel de logging es un umbral donde todo lo que está por debajo de ese umbral no se registra.
+    # - CRITICAL (50) — usar cuando el sistema queda inutilizable o hay riesgo de corrupción de datos; caída al iniciar, pérdida de conexión crítica persistente.
+    # - ERROR (40) — fallas que impactan la operación de una request o tarea; excepciones no recuperadas, errores de DB, setWebhook fallido.
+    # - WARNING (30) — condiciones inesperadas pero recuperables; timeouts transitorios, reintentos, datos incompletos no fatales.
+    # - INFO (20) — flujo normal del sistema; inicio, ruteos del supervisor, operaciones exitosas clave, métricas importantes.
+    # - DEBUG (10) — detalle fino para desarrollo; payloads resumidos, tiempos de cada paso, decisiones del agente. Evitar en producción salvo troubleshooting.
+    # - NOTSET (0) — no recomendable; hereda del logger padre y puede generar comportamientos ambiguos.
+    # Logging
+    LOG_LEVEL: str = "INFO" 
+    LOG_DIR: str = "logs"
+    LOG_FILE: str = "app.log"
+    LOG_ROTATE_WHEN: str = "midnight"
+    LOG_BACKUP_COUNT: int = 14
+    LOG_JSON: bool = False
 
     # CORS
     BACKEND_CORS_ORIGINS: List[str] = [
@@ -30,11 +47,12 @@ class Settings(BaseSettings):
     DATABASE_URL: str
     
     # Security
-    SECRET_KEY: str = "your-secret-key-change-in-production"
+    SECRET_KEY: str 
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
-    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
-    CSRF_SECRET_KEY: str = "csrf-secret-key-change-in-production"
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 15
+    KNOWLEDGE_MAX_MB_PER_VENDOR: int = 50
+    CSRF_SECRET_KEY: str 
     
     # Rate Limiting
     RATE_LIMIT_HEALTH: str = "10/minute"
