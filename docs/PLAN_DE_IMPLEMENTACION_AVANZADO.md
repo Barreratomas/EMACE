@@ -981,3 +981,58 @@ Implementación del modelo de acceso y cobro basado en el documento de referenci
 - [x] **Cumplimiento**:
   - [x] No almacenar datos sensibles de tarjeta (solo IDs/tokens).
   - [x] Revisión de permisos del token de MP (mínimos necesarios).
+
+
+
+## 🧱 Fase 15: Módulos Frontend con Datos Hardcodeados (Pendientes de Integrar con API)
+
+Estos módulos del frontend utilizan actualmente datos estáticos (arrays hardcodeados) sólo para visualización. El objetivo de esta fase es llevarlos a lecturas reales desde la API multi‑tenant (con filtros por `user_id`/tenant), de forma gradual y controlada.
+
+### 15.1 Dashboard Principal del Vendor
+
+- Alcance
+  - Reemplazar los KPIs y el listado de agentes del dashboard principal por datos en tiempo real por vendor.
+  - Conectar el gráfico de rendimiento 24h a series temporales reales.
+- Tareas
+  - [x] Diseñar contrato de API para overview de dashboard (ej. `GET /vendors/me/dashboard/overview`).
+  - [x] Implementar endpoint de overview en backend (métricas agregadas + resumen de agentes por vendor).
+  - [x] Adaptar `frontend/src/app/(dashboard)/dashboard/page.tsx` para consumir el endpoint y renderizar tarjetas y lista de agentes.
+  - [x] Definir fuente de datos para el gráfico 24h (métricas de requests/s, éxito, errores) y conectarlo al dashboard.
+  - [x] Eliminar datos de ejemplo hardcodeados en `dashboard/page.tsx` para KPIs y listado de agentes, manteniendo sólo datos provenientes del API o placeholders neutros (sin números ficticios).
+
+### 15.2 Panel de Agentes EMACE
+
+- Alcance
+  - Exponer catálogo de agentes y dominios soportados para cada vendor.
+  - Mostrar eventos recientes de la malla de agentes basados en logs reales.
+- Tareas
+  - [x] Diseñar contrato de API para catálogo de agentes (ej. `GET /vendors/me/agents`).
+  - [x] Diseñar contrato de API para dominios/herramientas por agente (ej. `GET /vendors/me/agents/tools`).
+  - [x] Implementar endpoints anteriores en backend con filtros por vendor y permisos.
+  - [x] Conectar `frontend/src/features/agents/index.tsx` para leer `AGENTS` y `TOOLS` desde la API.
+  - [x] Definir origen de “últimos eventos” (p.ej. `AuditLog` filtrado por tipo `agent_event`) y exponerlo vía endpoint paginado.
+
+### 15.3 Centro de Métricas y Observabilidad (Analytics)
+
+- Alcance
+  - Proveer métricas de sistema, inventario y negocio a nivel vendor para el módulo de Analytics.
+  - Conectar el módulo a flujos reales de eventos y logs operativos.
+- Tareas
+  - [x] Diseñar contratos de API para métricas agregadas (ej. `GET /vendors/me/metrics/system|inventory|business`).
+  - [x] Implementar endpoints de métricas en backend, reutilizando la capa de datos existente donde sea posible.
+  - [x] Adaptar `frontend/src/app/(dashboard)/analytics/page.tsx` para consumir estas métricas y remover arrays hardcodeados (`systemMetrics`, `inventoryMetrics`, `businessMetrics`).
+  - [x] Diseñar e implementar endpoint de stream/listado de eventos (ej. `GET /vendors/me/audit/stream` con filtros por categoría).
+  - [x] Conectar el feed de logs de Analytics al endpoint de eventos reales, con paginación y filtros básicos.
+  - [x] Conectar el panel de "Actividad Reciente" de `frontend/src/app/(dashboard)/dashboard/page.tsx` a este stream de eventos (o a un endpoint derivado), reemplazando el array hardcodeado de logs por datos reales de `AuditLog`.
+
+### 15.4 Landing y Copy Dinámico por Estado de Plataforma
+
+- Alcance
+  - Alinear los mensajes de la landing y etiquetas de capacidades con el estado real de la plataforma y sus features.
+- Tareas
+  - [x] Inventariar mensajes estáticos críticos en `frontend/src/app/page.tsx` vinculados a capacidades reales (p.ej. módulo de transacciones, baja latencia).
+  - [x] Definir modelo de feature flags / health checks para servicios clave (transacciones, notificaciones, integraciones).
+  - [x] Exponer estado de features relevantes vía API (endpoint ligero de “plataforma” o reuso de métricas existentes).
+  - [x] Conectar la landing a estos flags/health cuando sea necesario, manteniendo copy de marketing consistente con la realidad del entorno.
+
+> Nota: Una vez que estas subfases estén implementadas y los módulos consuman datos reales, actualizar este plan marcando las tareas correspondientes como completadas dentro de las fases de Observabilidad, Multi‑Tenancy y UX Frontend.

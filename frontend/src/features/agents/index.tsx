@@ -1,64 +1,103 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Bot, Cpu, Shield, Activity, Network, Database } from 'lucide-react';
 import { IndustrialProgress } from '@/components/ui/IndustrialProgress';
 import { cn } from '@/lib/utils';
 import { SectionHeader } from '@/components/ui/SectionHeader';
+import api from '@/lib/api';
 
-const AGENTS = [
-  {
-    id: 'general',
-    name: 'EMACE_CORE',
-    role: 'Orquestador General',
-    status: 'online',
-    load: 42,
-    latency: '1.2s',
-    domain: 'Core Routing',
-  },
-  {
-    id: 'inventory',
-    name: 'AGENTE_INVENTARIO',
-    role: 'Stock y Catálogo',
-    status: 'online',
-    load: 68,
-    latency: '1.5s',
-    domain: 'Inventory',
-  },
-  {
-    id: 'sales',
-    name: 'AGENTE_VENTAS',
-    role: 'Pedidos y Clientes',
-    status: 'busy',
-    load: 83,
-    latency: '2.1s',
-    domain: 'Sales',
-  },
-  {
-    id: 'logistics',
-    name: 'AGENTE_LOGISTICA',
-    role: 'Rutas y Entregas',
-    status: 'online',
-    load: 37,
-    latency: '1.0s',
-    domain: 'Logistics',
-  },
-];
+type ApiAgent = {
+  id: string;
+  name: string;
+  role: string;
+  status: 'online' | 'busy' | 'offline';
+  load: number;
+  latency: string;
+  domain: string;
+};
 
-const TOOLS = [
-  { icon: Database, label: 'Inventario', key: 'inventory', agents: ['AGENTE_INVENTARIO'] },
-  { icon: Network, label: 'Ventas', key: 'sales', agents: ['AGENTE_VENTAS'] },
-  { icon: Cpu, label: 'Logística', key: 'logistics', agents: ['AGENTE_LOGISTICA'] },
-];
+type ApiAgentTool = {
+  key: string;
+  label: string;
+  agents: string[];
+  icon: string;
+};
+
+type ApiAgentEvent = {
+  timestamp: string;
+  level: string;
+  agent_name: string;
+  action: string;
+  details: string;
+};
+
+function getToolIcon(icon: string) {
+  const normalized = icon.toLowerCase();
+  switch (normalized) {
+    case 'database':
+      return Database;
+    case 'network':
+      return Network;
+    case 'cpu':
+      return Cpu;
+    default:
+      return Database;
+  }
+}
+
+function formatEventLine(event: ApiAgentEvent) {
+  const date = new Date(event.timestamp);
+  const hh = String(date.getHours()).padStart(2, '0');
+  const mm = String(date.getMinutes()).padStart(2, '0');
+  const ss = String(date.getSeconds()).padStart(2, '0');
+  const level = (event.level || '').toUpperCase().padEnd(4, ' ');
+  const source = event.agent_name || event.action || 'SYSTEM';
+  const message = event.details || '';
+  return `[${hh}:${mm}:${ss}] ${level} ${source} ${message}`.trim();
+}
 
 export default function AgentsPanel() {
+  const [agents, setAgents] = useState<ApiAgent[]>([]);
+  const [tools, setTools] = useState<ApiAgentTool[]>([]);
+  const [events, setEvents] = useState<ApiAgentEvent[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchData = async () => {
+      try {
+        const [agentsRes, toolsRes, eventsRes] = await Promise.all([
+          api.get<ApiAgent[]>('/vendors/me/agents'),
+          api.get<ApiAgentTool[]>('/vendors/me/agents/tools'),
+          api.get<ApiAgentEvent[]>('/vendors/me/agents/events', { params: { limit: 50 } }),
+        ]);
+        if (cancelled) return;
+        setAgents(agentsRes.data || []);
+        setTools(toolsRes.data || []);
+        setEvents(eventsRes.data || []);
+        setError(null);
+      } catch {
+        if (cancelled) return;
+        setError('No se pudo cargar el panel de agentes');
+        setAgents([]);
+        setTools([]);
+        setEvents([]);
+      }
+    };
+    fetchData();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const overview = useMemo(() => {
-    const total = AGENTS.length;
-    const online = AGENTS.filter(a => a.status === 'online').length;
-    const busy = AGENTS.filter(a => a.status === 'busy').length;
+    const total = agents.length;
+    const online = agents.filter(a => a.status === 'online').length;
+    const busy = agents.filter(a => a.status === 'busy').length;
     const offline = total - online - busy;
     return { total, online, busy, offline };
-  }, []);
+  }, [agents]);
 
   return (
     <div className="space-y-10 animate-in fade-in duration-700">
@@ -101,7 +140,17 @@ export default function AgentsPanel() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-4">
-          {AGENTS.map(agent => (
+          {error && agents.length === 0 && (
+            <div className="panel-industrial p-4 text-[10px] font-bold text-rose-500 terminal-text uppercase tracking-widest">
+              {error}
+            </div>
+          )}
+          {!error && agents.length === 0 && (
+            <div className="panel-industrial p-4 text-[10px] font-bold text-slate-500 terminal-text uppercase tracking-widest">
+              SIN_DATOS_DE_AGENTES
+            </div>
+          )}
+          {agents.length > 0 && agents.map(agent => (
             <div
               key={agent.id}
               className="panel-industrial p-4 flex items-center gap-5 group hover:bg-white/5 transition-all rounded-none border-white/5 relative overflow-hidden"
@@ -181,28 +230,37 @@ export default function AgentsPanel() {
               <span className="text-[9px] font-mono text-slate-500">SYNC_OK</span>
             </div>
             <div className="space-y-3">
-              {TOOLS.map(tool => (
-                <div
-                  key={tool.key}
-                  className="flex items-center justify-between p-3 bg-black/40 border border-white/5"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-md bg-white/5 border border-white/10">
-                      <tool.icon size={14} className="text-slate-200" />
-                    </div>
-                    <div>
-                      <div className="text-[11px] font-bold text-slate-100 tracking-tight">{tool.label}</div>
-                      <div className="text-[9px] text-slate-500 font-mono">
-                        {tool.agents.join(' · ')}
+              {tools.length === 0 ? (
+                <div className="text-[9px] text-slate-500 font-mono">
+                  SIN_DATOS_DE_HERRAMIENTAS
+                </div>
+              ) : (
+                tools.map(tool => {
+                  const Icon = getToolIcon(tool.icon);
+                  return (
+                    <div
+                      key={tool.key}
+                      className="flex items-center justify-between p-3 bg-black/40 border border-white/5"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-md bg-white/5 border border-white/10">
+                          <Icon size={14} className="text-slate-200" />
+                        </div>
+                        <div>
+                          <div className="text-[11px] font-bold text-slate-100 tracking-tight">{tool.label}</div>
+                          <div className="text-[9px] text-slate-500 font-mono">
+                            {tool.agents.join(' · ')}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end text-[9px] font-mono text-slate-500">
+                        <span className="uppercase">Toolset</span>
+                        <span className="text-cyber-lime">OK</span>
                       </div>
                     </div>
-                  </div>
-                  <div className="flex flex-col items-end text-[9px] font-mono text-slate-500">
-                    <span className="uppercase">Toolset</span>
-                    <span className="text-cyber-lime">OK</span>
-                  </div>
-                </div>
-              ))}
+                  );
+                })
+              )}
             </div>
           </div>
 
@@ -216,11 +274,13 @@ export default function AgentsPanel() {
               </div>
             </div>
             <div className="space-y-2 text-[9px] font-mono text-slate-400 max-h-60 overflow-y-auto custom-scrollbar">
-              <div>[21:30:42] INFO  Supervisor enruta consulta a AGENTE_INVENTARIO</div>
-              <div>[21:30:45] OK    AGENTE_VENTAS ejecuta create_order</div>
-              <div>[21:31:10] WARN  Latencia elevada en herramienta inventory_search</div>
-              <div>[21:31:22] INFO  AGENTE_LOGISTICA genera plan de rutas</div>
-              <div>[21:31:58] OK    Sincronización de memoria vectorial completada</div>
+              {events.length === 0 ? (
+                <div>SIN_EVENTOS_DE_AGENTES</div>
+              ) : (
+              events.map((event, index) => (
+                <div key={index}>{formatEventLine(event)}</div>
+              ))
+              )}
             </div>
           </div>
         </div>

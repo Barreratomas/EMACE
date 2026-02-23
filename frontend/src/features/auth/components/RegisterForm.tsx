@@ -92,7 +92,6 @@ export default function RegisterForm() {
             </div>
             <div className="text-right">
               <div className="text-[10px] font-bold text-slate-400 tracking-widest uppercase">Registro EMACE</div>
-              <div className="text-[11px] font-bold text-primary uppercase mt-1">Nuevo Operador</div>
             </div>
           </div>
           <h1 className="text-4xl font-extrabold tracking-tight font-display relative z-10">

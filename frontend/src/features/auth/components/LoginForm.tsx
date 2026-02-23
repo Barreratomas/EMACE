@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { loginAction, loginIamAction } from '../actions/auth';
-import { Shield, Lock, Mail, ArrowRight, Activity, Loader2, Building2, Users } from 'lucide-react';
+import { User, Lock, Mail, ArrowRight, Loader2, Building2, Users } from 'lucide-react';
 import Link from 'next/link';
 
 export default function LoginForm() {
@@ -47,14 +47,10 @@ export default function LoginForm() {
           
           <div className="flex justify-between items-start mb-8 relative z-10">
             <div className="p-4 bg-primary/10 rounded-2xl border border-primary/20 text-primary shadow-sm backdrop-blur-sm">
-              <Shield size={28} />
+              <User size={28} />
             </div>
             <div className="text-right">
-              <div className="text-[10px] font-bold text-slate-400 tracking-widest uppercase">Seguridad EMACE</div>
-              <div className="text-[11px] font-bold text-secondary uppercase mt-1 flex items-center justify-end gap-1.5">
-                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                Acceso Seguro
-              </div>
+              <div className="text-[10px] font-bold text-slate-400 tracking-widest uppercase">Acceso EMACE</div>
             </div>
           </div>
           <h1 className="text-4xl font-extrabold tracking-tight font-display relative z-10">
@@ -163,16 +159,7 @@ export default function LoginForm() {
           </div>
         </form>
 
-        {/* Footer Meta */}
-        <div className="bg-slate-50/50 dark:bg-slate-900/50 p-6 border-t border-border-ui/50 flex justify-between items-center">
-          <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-            <Activity size={12} />
-            Estado del Servidor: OK
-          </div>
-          <div className="text-[10px] font-bold text-slate-300 dark:text-slate-700 uppercase">
-            v1.0.4-LTS
-          </div>
-        </div>
+      
       </div>
     </div>
   );
