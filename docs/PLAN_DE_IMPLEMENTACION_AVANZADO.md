@@ -1035,4 +1035,34 @@ Estos módulos del frontend utilizan actualmente datos estáticos (arrays hardco
   - [x] Exponer estado de features relevantes vía API (endpoint ligero de “plataforma” o reuso de métricas existentes).
   - [x] Conectar la landing a estos flags/health cuando sea necesario, manteniendo copy de marketing consistente con la realidad del entorno.
 
+### 15.5 Modularización de Endpoints FastAPI
+
+- Alcance
+  - Dividir endpoints monolíticos en módulos especializados siguiendo las recomendaciones de arquitectura FastAPI.
+- Tareas
+  - [x] Separar endpoints de inventario, dashboard, agentes, analítica y plataforma en módulos dedicados.
+  - [x] Actualizar el registro de routers en `backend/app/api/v1/api.py` para usar los nuevos módulos.
+  - [x] Revisar otros endpoints de `backend/app/api/v1/endpoints` que puedan requerir modularización adicional.
+
 > Nota: Una vez que estas subfases estén implementadas y los módulos consuman datos reales, actualizar este plan marcando las tareas correspondientes como completadas dentro de las fases de Observabilidad, Multi‑Tenancy y UX Frontend.
+
+
+## 🧱 Fase 16: Validación de Acceso y Prevención de Pagos Duplicados
+
+- Objetivo
+  - Implementar lógica de negocio para evitar compras redundantes y asegurar la integridad de los estados de suscripción.
+- Alcance
+  - Controlar que un usuario con suscripción activa no pueda iniciar un nuevo flujo de pago para la misma suscripción hasta que esté cerca de expirar.
+  - Bloquear compras de suscripciones o de "Acceso de por Vida" (Lifetime) si el usuario ya posee una licencia de por vida.
+  - Prevenir la compra duplicada del acceso "Lifetime".
+- Tareas
+  - [x] **Backend: Lógica de validación en el endpoint de creación de preferencias.**
+    - Modificar `backend/app/api/v1/endpoints/billing.py` para consultar el `VendorAccessState` antes de llamar a la API de Mercado Pago.
+    - Retornar error `400 Bad Request` con mensaje descriptivo si el usuario intenta pagar algo que ya posee y sigue vigente.
+  - [x] **Frontend: UI/UX Preventiva.**
+    - Deshabilitar botones de compra en la sección de Billing si el estado de acceso actual lo justifica.
+    - Mostrar mensajes informativos (ej: "Ya tienes una suscripción activa hasta el DD/MM/YYYY" o "Posees acceso de por vida").
+  - [ ] **Manejo de Upgrades (Opcional/Futuro).**
+    - Definir si se permitirá el upgrade de suscripción mensual a anual o a de por vida, calculando el prorrateo si fuera necesario.
+  - [x] **Pruebas de Integridad.**
+    - Verificar mediante tests unitarios que un usuario 'lifetime' no pueda generar nuevas preferencias de pago.

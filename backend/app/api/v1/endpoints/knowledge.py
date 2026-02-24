@@ -109,7 +109,7 @@ async def list_knowledge_documents(
             detail=f"Error listando documentos: {str(e)}"
         )
 
-@router.delete("/documents/{source_name}")
+
 @router.get("/usage")
 async def get_knowledge_usage(
     current_user: User = Depends(allowed_roles),
@@ -131,6 +131,8 @@ async def get_knowledge_usage(
         "max_mb": max_mb,
         "usage_ratio": ratio,
     }
+
+
 @router.delete("/documents/{source_name}")
 async def delete_knowledge_document(
     source_name: str,
@@ -148,7 +150,7 @@ async def delete_knowledge_document(
             logger.error(
                 {
                     "event": "knowledge.delete.error",
-                    "owner_id": get_tenant_owner_id(current_user),
+                    "owner_id": owner_id,
                     "source_name": source_name,
                     "error": str(e)[:500],
                 },

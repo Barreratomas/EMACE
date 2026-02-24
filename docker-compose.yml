@@ -63,14 +63,14 @@ services:
         condition: service_healthy
     command: >
       sh -c "
-        if [ ! -f /app/venv/bin/activate ]; then
+        if [ ! -d /app/venv ]; then
           echo 'Creando venv...' &&
-          python -m venv /app/venv &&
-          apt-get update &&
-          apt-get install -y gcc libpq-dev &&
-          /app/venv/bin/pip install --upgrade pip &&
-          /app/venv/bin/pip install -r requirements-docker.txt;
+          python -m venv /app/venv;
         fi &&
+        apt-get update &&
+        apt-get install -y gcc libpq-dev &&
+        /app/venv/bin/pip install --upgrade pip &&
+        /app/venv/bin/pip install -r requirements-docker.txt &&
         /app/venv/bin/python manage.py api-venv
       "
 

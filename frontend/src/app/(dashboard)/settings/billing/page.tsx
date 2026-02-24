@@ -52,7 +52,29 @@ export default function BillingSettingsPage() {
     return Math.max(0, Math.ceil(diff));
   }, [state]);
 
+  const canSubscribe = useMemo(() => {
+    if (!state) return true;
+    if (state.access_mode === 'lifetime') return false;
+    if (state.access_mode === 'subscription' && state.valid_until) {
+      const now = DateTime.now();
+      const until = DateTime.fromISO(state.valid_until);
+      const diff = until.diff(now, 'days').days;
+      // Permitir si faltan 7 días o menos
+      return diff <= 7;
+    }
+    return true;
+  }, [state]);
+
+  const canBuyLifetime = useMemo(() => {
+    if (!state) return true;
+    return state.access_mode !== 'lifetime';
+  }, [state]);
+
   const onSubscribe = async () => {
+    if (!canSubscribe) {
+      toast.warning('Ya tienes una suscripción activa y vigente.');
+      return;
+    }
     try {
       const res = await api.post<{ checkout_url: string }>('/billing/subscriptions', {});
       const url = res.data.checkout_url;
@@ -67,10 +89,18 @@ export default function BillingSettingsPage() {
   };
 
   const onLifetime = async () => {
+    if (!canBuyLifetime) {
+      toast.warning('Ya posees acceso de por vida.');
+      return;
+    }
     try {
-      await api.post('/billing/lifetime', {});
-      toast.success('Plan lifetime activado correctamente');
-      refetchState();
+      const res = await api.post<{ checkout_url: string }>('/billing/lifetime/checkout', {});
+      const url = res.data.checkout_url;
+      if (url) {
+        window.location.href = url;
+      } else {
+        toast.error('No se pudo obtener el enlace de checkout para lifetime');
+      }
     } catch (e: any) {
       toast.error(e?.response?.data?.detail || 'No se pudo activar el plan lifetime');
     }
@@ -146,10 +176,19 @@ export default function BillingSettingsPage() {
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <Button onClick={onSubscribe} className="flex items-center gap-2">
+            <Button 
+              onClick={onSubscribe} 
+              className={`flex items-center gap-2 ${!canSubscribe ? 'opacity-50 cursor-not-allowed' : ''}`}
+              disabled={!canSubscribe}
+            >
               <CreditCard size={14}/> Suscribirme
             </Button>
-            <Button onClick={onLifetime} variant="secondary" className="flex items-center gap-2">
+            <Button 
+              onClick={onLifetime} 
+              variant="secondary" 
+              className={`flex items-center gap-2 ${!canBuyLifetime ? 'opacity-50 cursor-not-allowed' : ''}`}
+              disabled={!canBuyLifetime}
+            >
               <ShieldCheck size={14}/> Comprar Lifetime
             </Button>
             {state?.access_mode === 'subscription' && (
