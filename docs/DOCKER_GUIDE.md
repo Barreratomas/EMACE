@@ -15,7 +15,7 @@ Ejemplo:
 ```bash
 wsl docker compose up -d
 ```
-docker compose up postgres qdrant adminer backend -d
+docker compose up postgres qdrant adminer cloudflared backend -d
 ---
 
 ## Comandos Comunes
@@ -85,6 +85,29 @@ wsl docker compose restart backend
 Si necesitas empezar de cero con la base de datos (¡Cuidado: esto borra todos los datos!):
 ```bash
 wsl docker compose down -v
+```
+
+---
+
+## Integración con Telegram y Túneles (Cloudflare)
+
+El sistema está configurado para manejar automáticamente las URLs cambiantes de los túneles (como Cloudflare Tunnel).
+
+### 1. Detección de URL Pública
+Para que el bot de Telegram y los webhooks de Mercado Pago funcionen, el sistema necesita saber su URL pública.
+- El backend intenta detectar esta URL automáticamente a partir de la variable `MP_WEBHOOK_URL` en el archivo `.env`.
+- Si `MP_WEBHOOK_URL` es `https://mi-tunel.trycloudflare.com/api/v1/billing/webhook/mp`, el sistema asumirá que la base pública es `https://mi-tunel.trycloudflare.com`.
+
+### 2. Sincronización Automática
+Cada vez que el backend se inicia (`wsl docker compose restart backend`), el sistema:
+1. Lee todas las integraciones de Telegram activas en la base de datos.
+2. Registra automáticamente el webhook en los servidores de Telegram usando la URL del túnel actual.
+3. Esto elimina la necesidad de reconfigurar manualmente el bot cada vez que reinicias el túnel.
+
+### 3. Configuración Manual (Opcional)
+Si deseas forzar una URL específica, puedes definirla en el `.env` del backend:
+```env
+TELEGRAM_PUBLIC_BASE_URL=https://tu-dominio-personal.com
 ```
 
 ---

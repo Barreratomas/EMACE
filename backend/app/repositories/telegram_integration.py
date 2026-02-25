@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime, timezone
 
 from sqlmodel import select
@@ -9,10 +9,10 @@ from app.core.database.models import VendorTelegramIntegration
 
 class TelegramIntegrationRepository:
     async def get_by_vendor_id(self, session: AsyncSession, vendor_id: int) -> Optional[VendorTelegramIntegration]:
+        """Obtiene la integración por vendor_id, incluyendo las eliminadas para poder reactivarlas."""
         result = await session.execute(
             select(VendorTelegramIntegration).where(
                 VendorTelegramIntegration.vendor_id == vendor_id,
-                VendorTelegramIntegration.state != "deleted",
             )
         )
         return result.scalar_one_or_none()
@@ -25,6 +25,16 @@ class TelegramIntegrationRepository:
             )
         )
         return result.scalar_one_or_none()
+
+    async def get_all_active(self, session: AsyncSession) -> List[VendorTelegramIntegration]:
+        """Obtiene todas las integraciones activas."""
+        result = await session.execute(
+            select(VendorTelegramIntegration).where(
+                VendorTelegramIntegration.is_active == True,
+                VendorTelegramIntegration.state == "active"
+            )
+        )
+        return list(result.scalars().all())
 
     async def upsert(
         self,

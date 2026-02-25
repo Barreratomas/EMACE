@@ -1062,7 +1062,7 @@ Estos módulos del frontend utilizan actualmente datos estáticos (arrays hardco
   - [x] **Frontend: UI/UX Preventiva.**
     - Deshabilitar botones de compra en la sección de Billing si el estado de acceso actual lo justifica.
     - Mostrar mensajes informativos (ej: "Ya tienes una suscripción activa hasta el DD/MM/YYYY" o "Posees acceso de por vida").
-  - [ ] **Manejo de Upgrades (Opcional/Futuro).**
-    - Definir si se permitirá el upgrade de suscripción mensual a anual o a de por vida, calculando el prorrateo si fuera necesario.
+  - [ ] **Manejo de Upgrades y Downgrades (Opcional/Futuro).**
+    - Definir si se permitirá el upgrade de suscripción mensual a anual o a de por vida, calculando el prorrateo si fuera necesario. en caso de downgrade, se deberá calcular el prorrateo de la suscripción mensual a la anual.
   - [x] **Pruebas de Integridad.**
     - Verificar mediante tests unitarios que un usuario 'lifetime' no pueda generar nuevas preferencias de pago.

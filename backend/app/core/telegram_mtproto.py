@@ -263,5 +263,49 @@ class MtprotoClientManager:
             await client.disconnect()
         return final_session
 
+    async def list_bots_from_father(self, vendor_id: int) -> List[Dict[str, str]]:
+        """
+        Usa la sesión MTProto del vendor para listar sus bots enviando /mybots a BotFather.
+        Esta es una aproximación, ya que BotFather responde con un teclado interactivo.
+        """
+        client = await self.ensure_connected(vendor_id)
+        if not client:
+            return []
+
+        # Enviar /mybots a BotFather
+        from telethon.tl.types import InputPeerUser
+        # BotFather ID: 93372553
+        botfather = await client.get_input_entity("botfather")
+        
+        # Necesitamos capturar la respuesta. Como es asíncrono y por eventos,
+        # una forma simple es esperar un poco y ver los últimos mensajes.
+        await client.send_message(botfather, "/mybots")
+        
+        # Esperar a que BotFather responda (usualmente rápido)
+        await asyncio.sleep(2)
+        
+        bots = []
+        async for message in client.iter_messages(botfather, limit=5):
+            # BotFather suele responder con una lista de botones con los usernames
+            if message.reply_markup:
+                from telethon.tl.types import ReplyInlineMarkup, KeyboardButtonCallback
+                if hasattr(message.reply_markup, 'rows'):
+                    for row in message.reply_markup.rows:
+                        for button in row.buttons:
+                            if hasattr(button, 'text') and button.text.startswith('@'):
+                                bots.append({
+                                    "username": button.text.replace('@', ''),
+                                    "display_name": button.text
+                                })
+            
+            # También puede estar en el texto si no hay botones (menos común)
+            if not bots and "/mybots" not in message.text:
+                import re
+                found = re.findall(r'@([a-zA-Z0-9_]{5,32}bot)', message.text, re.IGNORECASE)
+                for b in found:
+                    bots.append({"username": b, "display_name": f"@{b}"})
+        
+        return bots
+
 
 mtproto_manager = MtprotoClientManager()

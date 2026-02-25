@@ -41,8 +41,12 @@ export default function TelegramSettingsPage() {
   const [autoBotUsername, setAutoBotUsername] = useState('');
   const [autoBotStatus, setAutoBotStatus] = useState<'none' | 'creating' | 'ready' | 'error'>('none');
   const [autoBotError, setAutoBotError] = useState<string | null>(null);
+  const [discoveredBots, setDiscoveredBots] = useState<Array<{ username: string; display_name: string }>>([]);
+  const [discoveringBots, setDiscoveringBots] = useState(false);
+  const [manualToken, setManualToken] = useState('');
+  const [importingToken, setImportingToken] = useState(false);
 
-  const hasIntegration = !!integration;
+  const hasIntegration = !!integration && integration.state !== 'deleted';
   const canAutoCreate =
     !!mtprotoStatus && mtprotoStatus.allowed && mtprotoStatus.mtproto_enabled;
 
@@ -196,6 +200,25 @@ export default function TelegramSettingsPage() {
       await refreshIntegrationStatus();
     } catch (e: any) {
       toast.error(e?.response?.data?.detail || 'No se pudo eliminar la integración.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleHardDeleteBot = async () => {
+    if (!integration) return;
+    const ok = window.confirm(
+      '¡ADVERTENCIA CRÍTICA! Esto eliminará el bot de tu sistema Y TAMBIÉN le ordenará a BotFather que lo elimine permanentemente de Telegram. Esta acción no se puede deshacer. ¿Estás TOTALMENTE seguro?',
+    );
+    if (!ok) return;
+    
+    setLoading(true);
+    try {
+      await api.delete('/vendors/me/integrations/telegram/bot/hard-delete');
+      toast.warning('Solicitud de eliminación total enviada a BotFather.');
+      await refreshIntegrationStatus();
+    } catch (e: any) {
+      toast.error(e?.response?.data?.detail || 'No se pudo iniciar la eliminación total.');
     } finally {
       setLoading(false);
     }
@@ -448,6 +471,44 @@ export default function TelegramSettingsPage() {
     }
   };
 
+  const handleDiscoverBots = async () => {
+    setDiscoveringBots(true);
+    try {
+      const res = await api.get('/vendors/me/integrations/telegram/bot/discover');
+      setDiscoveredBots(res.data?.bots || []);
+      if (res.data?.bots?.length === 0) {
+        toast.info('No se encontraron bots vinculados a esta cuenta en BotFather.');
+      } else {
+        toast.success(`Se encontraron ${res.data?.bots?.length} bots.`);
+      }
+    } catch (e: any) {
+      toast.error(e?.response?.data?.detail || 'No se pudieron buscar bots.');
+    } finally {
+      setDiscoveringBots(false);
+    }
+  };
+
+  const handleImportToken = async (token?: string) => {
+    const finalToken = token || manualToken;
+    if (!finalToken) {
+      toast.error('Ingresá un token válido.');
+      return;
+    }
+    setImportingToken(true);
+    try {
+      const res = await api.post('/vendors/me/integrations/telegram/bot/import', {
+        token: finalToken,
+      });
+      toast.success(`Bot @${res.data.bot_username} importado y vinculado.`);
+      setManualToken('');
+      await refreshIntegrationStatus();
+    } catch (e: any) {
+      toast.error(e?.response?.data?.detail || 'No se pudo importar el bot.');
+    } finally {
+      setImportingToken(false);
+    }
+  };
+
   /* Deshabilitar ya no es parte del flujo principal */
 
   const handleMtprotoRevoke = async () => {
@@ -604,8 +665,18 @@ export default function TelegramSettingsPage() {
                     disabled={loading || integration?.state === 'deleted'}
                     variant="destructive"
                   >
-                    Eliminar integración
+                    Desvincular
                   </Button>
+                  {mtprotoStatus?.mtproto_enabled && (
+                    <Button
+                      onClick={handleHardDeleteBot}
+                      disabled={loading || integration?.state === 'deleted'}
+                      variant="destructive"
+                      className="bg-red-900/40 hover:bg-red-800/60 border-red-500/50"
+                    >
+                      Eliminar de Telegram
+                    </Button>
+                  )}
                 </div>
                 <div className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
                   <p>
@@ -880,7 +951,10 @@ export default function TelegramSettingsPage() {
                 className="w-full px-3 py-2 rounded-md border border-border-ui/60 bg-black/20 text-sm"
               />
               <div className="flex items-center gap-3">
-                <Button onClick={handleAutoCreate} disabled={autoBotStatus === 'creating'}>
+                <Button 
+                  onClick={handleAutoCreate} 
+                  disabled={autoBotStatus === 'creating' || hasIntegration}
+                >
                   {autoBotStatus === 'creating' ? 'Creando...' : 'Crear bot automáticamente'}
                 </Button>
                 <span className="inline-flex items-center rounded-full border border-indigo-400/40 bg-indigo-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-indigo-300">
@@ -897,6 +971,78 @@ export default function TelegramSettingsPage() {
                 </span>
               </div>
               {autoBotError && <p className="text-xs text-amber-400">{autoBotError}</p>}
+            </div>
+          )}
+
+          {mtprotoStatus?.mtproto_enabled && (
+            <div className="space-y-4 rounded-lg border border-slate-800/60 bg-black/20 p-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold">Sincronizar bots existentes</h3>
+                <Button 
+                  onClick={handleDiscoverBots} 
+                  disabled={discoveringBots || hasIntegration}
+                  variant="secondary"
+                  size="sm"
+                >
+                  {discoveringBots ? 'Buscando...' : 'Buscar mis bots en Telegram'}
+                </Button>
+              </div>
+              
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Si ya tenés bots creados en tu cuenta de Telegram, podés buscarlos aquí. 
+                Necesitarás el token que te dio BotFather para vincularlos.
+              </p>
+
+              {hasIntegration && (
+                <p className="text-xs text-amber-400/80 font-medium bg-amber-400/5 p-2 rounded border border-amber-400/20">
+                  Ya tenés un bot vinculado. Para vincular uno diferente, primero debés eliminar la integración actual.
+                </p>
+              )}
+
+              {discoveredBots.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Bots encontrados:</p>
+                  <div className="grid gap-2">
+                    {discoveredBots.map((bot) => (
+                      <div key={bot.username} className="flex items-center justify-between rounded border border-slate-800/40 bg-black/10 p-2">
+                        <span className="font-mono text-sm text-slate-300">@{bot.username}</span>
+                        <Button 
+                          size="sm" 
+                          variant="ghost"
+                          className="text-xs"
+                          disabled={hasIntegration}
+                          onClick={() => {
+                            const t = window.prompt(`Ingresá el token de BotFather para @${bot.username}`);
+                            if (t) handleImportToken(t);
+                          }}
+                        >
+                          Vincular con Token
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="pt-2 border-t border-slate-800/40">
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2">Vincular bot manualmente</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={manualToken}
+                    onChange={(e) => setManualToken(e.target.value)}
+                    placeholder="Token de BotFather (ej: 123456:ABC...)"
+                    className="flex-1 px-3 py-1.5 rounded-md border border-border-ui/60 bg-black/20 text-xs font-mono"
+                  />
+                  <Button 
+                    onClick={() => handleImportToken()} 
+                    disabled={importingToken || !manualToken || hasIntegration}
+                    size="sm"
+                  >
+                    {importingToken ? 'Vinculando...' : 'Vincular'}
+                  </Button>
+                </div>
+              </div>
             </div>
           )}
 

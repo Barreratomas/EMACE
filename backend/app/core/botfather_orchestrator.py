@@ -42,6 +42,15 @@ class BotCreationState:
     last_error: Optional[str] = None
     started_at: float = field(default_factory=lambda: time.time())
 
+@dataclass
+class BotDeletionState:
+    vendor_id: int
+    bot_username: str
+    status: str = "idle"
+    expected: Optional[str] = None
+    last_error: Optional[str] = None
+    started_at: float = field(default_factory=lambda: time.time())
+
 
 def _normalize_username(u: str) -> str:
     print("botfather_orchestrator._normalize_username", u)
@@ -63,17 +72,19 @@ class BotFatherOrchestrator:
     def __init__(self) -> None:
         print("botfather_orchestrator.__init__")
         self._states: Dict[int, BotCreationState] = {}
+        self._deletion_states: Dict[int, BotDeletionState] = {}
 
-    async def _persist_state(self, vendor_id: int, st: BotCreationState) -> None:
+    async def _persist_state(self, vendor_id: int, st: BotCreationState | BotDeletionState) -> None:
         print("botfather_orchestrator._persist_state", vendor_id, st.status, st.expected)
+        action = "bot_auto_create_state" if isinstance(st, BotCreationState) else "bot_hard_delete_state"
         try:
             async_session = get_async_sessionmaker()
             async with async_session() as session:
                 log = AuditLog(
                     user_id=vendor_id,
                     agent_name="BotFatherOrchestrator",
-                    action="bot_auto_create_state",
-                    details=f"status={st.status}|expected={st.expected}|retries={st.retries}|token={'yes' if st.token else 'no'}|error={st.last_error or ''}",
+                    action=action,
+                    details=f"status={st.status}|expected={st.expected}|error={st.last_error or ''}",
                     timestamp=datetime.now(timezone.utc),
                 )
                 session.add(log)
@@ -84,13 +95,24 @@ class BotFatherOrchestrator:
     def has_active(self, vendor_id: int) -> bool:
         print("botfather_orchestrator.has_active", vendor_id)
         st = self._states.get(vendor_id)
-        if not st:
-            return False
-        return st.status not in ("completed", "failed")
+        dst = self._deletion_states.get(vendor_id)
+        
+        if st and st.status not in ("completed", "failed"):
+            return True
+        if dst and dst.status not in ("completed", "failed"):
+            return True
+            
+        return False
 
     def get_state(self, vendor_id: int) -> Optional[BotCreationState]:
         print("botfather_orchestrator.get_state", vendor_id)
         return self._states.get(vendor_id)
+
+    def clear_vendor_states(self, vendor_id: int) -> None:
+        """Limpia cualquier estado de orquestación para el vendor."""
+        print("botfather_orchestrator.clear_vendor_states", vendor_id)
+        self._states.pop(vendor_id, None)
+        self._deletion_states.pop(vendor_id, None)
 
     async def start_auto_create(self, vendor_id: int, bot_name: str, username_hint: str) -> None:
         print("botfather_orchestrator.start_auto_create", vendor_id, bot_name, username_hint)
@@ -117,12 +139,43 @@ class BotFatherOrchestrator:
             except Exception:
                 pass
 
+    async def start_bot_deletion(self, vendor_id: int, bot_username: str) -> None:
+        """Inicia el proceso de eliminación de un bot en BotFather."""
+        print("botfather_orchestrator.start_bot_deletion", vendor_id, bot_username)
+        dst = BotDeletionState(
+            vendor_id=vendor_id,
+            bot_username=bot_username,
+            status="sent_deletebot",
+            expected="ask_which_bot",
+        )
+        self._deletion_states[vendor_id] = dst
+        try:
+            await mtproto_manager.send_message(vendor_id, BOTFATHER_ID, "/deletebot")
+            await self._persist_state(vendor_id, dst)
+        except Exception as e:
+            dst.status = "failed"
+            dst.last_error = f"send_deletebot_error:{str(e)[:80]}"
+            logger.error({"event": "botfather.delete_start.error", "vendor_id": vendor_id, "error": str(e)[:200]})
+            await self._persist_state(vendor_id, dst)
+
     async def on_botfather_message(self, vendor_id: int, text: str, meta: dict) -> None:
         print("botfather_orchestrator.on_botfather_message", vendor_id, text[:80])
         st = self._states.get(vendor_id)
-        if not st:
-            return
+        dst = self._deletion_states.get(vendor_id)
         low = text.lower()
+
+        # Priorizar orquestación de creación si existe
+        if st and st.status not in ("completed", "failed"):
+            await self._handle_creation_step(st, low, text)
+            return
+
+        # Si no hay creación, manejar eliminación
+        if dst and dst.status not in ("completed", "failed"):
+            await self._handle_deletion_step(dst, low, text)
+            return
+
+    async def _handle_creation_step(self, st: BotCreationState, low: str, text: str) -> None:
+        vendor_id = st.vendor_id
         try:
             if st.expected == "ask_name":
                 if "name" in low or "nombre" in low:
@@ -189,7 +242,7 @@ class BotFatherOrchestrator:
                                     bot_token_encrypted=enc,
                                     webhook_secret=secret,
                                 )
-                                base = getattr(settings, "TELEGRAM_PUBLIC_BASE_URL", None)
+                                base = settings.EFFECTIVE_TELEGRAM_PUBLIC_BASE_URL
                                 if base:
                                     base = str(base).rstrip("/")
                                     url = f"{base}{settings.API_V1_STR}/telegram/webhook/{vendor_id}/{secret}"
@@ -224,6 +277,36 @@ class BotFatherOrchestrator:
                 AUTOCREATE_DURATION.labels(vendor_id=str(vendor_id)).observe(max(0.0, time.time() - st.started_at))
             except Exception:
                 pass
+
+    async def _handle_deletion_step(self, dst: BotDeletionState, low: str, text: str) -> None:
+        vendor_id = dst.vendor_id
+        try:
+            if dst.expected == "ask_which_bot":
+                if "choose" in low or "elija" in low or "seleccione" in low or "which bot" in low:
+                    await mtproto_manager.send_message(vendor_id, BOTFATHER_ID, f"@{dst.bot_username}")
+                    dst.status = "sent_bot_to_delete"
+                    dst.expected = "ask_confirmation"
+                    await self._persist_state(vendor_id, dst)
+                    return
+            elif dst.expected == "ask_confirmation":
+                if "are you sure" in low or "estás seguro" in low or "totally sure" in low:
+                    await mtproto_manager.send_message(vendor_id, BOTFATHER_ID, "Yes, I am totally sure.")
+                    dst.status = "sent_confirmation"
+                    dst.expected = "waiting_final_confirmation"
+                    await self._persist_state(vendor_id, dst)
+                    return
+            elif dst.expected == "waiting_final_confirmation":
+                if "done" in low or "gone" in low or "eliminado" in low or "borrado" in low:
+                    dst.status = "completed"
+                    dst.expected = None
+                    logger.info({"event": "botfather.deletion.completed", "vendor_id": vendor_id, "bot": dst.bot_username})
+                    await self._persist_state(vendor_id, dst)
+                    return
+        except Exception as e:
+            dst.status = "failed"
+            dst.last_error = f"deletion_orchestration_error:{str(e)[:80]}"
+            logger.error({"event": "botfather.deletion.error", "vendor_id": vendor_id, "error": str(e)[:200]})
+            await self._persist_state(vendor_id, dst)
 
 
 botfather_orchestrator = BotFatherOrchestrator()

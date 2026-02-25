@@ -84,6 +84,26 @@ class Settings(BaseSettings):
     MP_WEBHOOK_URL: str | None = None
     MP_CURRENCY_ID: str = "ARS"
 
+    @property
+    def EFFECTIVE_TELEGRAM_PUBLIC_BASE_URL(self) -> str | None:
+        """
+        Calcula la URL pública efectiva para Telegram.
+        Si TELEGRAM_PUBLIC_BASE_URL está definido, se usa ese.
+        Si no, intenta deducirla de MP_WEBHOOK_URL (que suele ser el túnel de Cloudflare).
+        """
+        if self.TELEGRAM_PUBLIC_BASE_URL:
+            return str(self.TELEGRAM_PUBLIC_BASE_URL).rstrip("/")
+        
+        if self.MP_WEBHOOK_URL:
+            # MP_WEBHOOK_URL suele ser algo como https://dominio.trycloudflare.com/api/v1/billing/webhook/mp
+            # Queremos extraer solo el esquema y el host: https://dominio.trycloudflare.com
+            from urllib.parse import urlparse
+            parsed = urlparse(self.MP_WEBHOOK_URL)
+            if parsed.scheme and parsed.netloc:
+                return f"{parsed.scheme}://{parsed.netloc}"
+        
+        return None
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

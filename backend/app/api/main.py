@@ -27,6 +27,9 @@ from app.graph.workflow import workflow as graph
 from langchain_core.messages import HumanMessage, AIMessage
 from app.core.database.session import get_async_sessionmaker
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+import httpx
+from app.core.security import decrypt_secret
+from app.repositories.telegram_integration import telegram_integration_repo
 
 def _setup_logging():
     level = getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO)
@@ -106,6 +109,42 @@ async def general_exception_handler(request: Request, exc: Exception):
 @app.on_event("startup")
 async def startup_event():
     """Eventos al iniciar la aplicación."""
+    # Registro dinámico de webhooks de Telegram si hay URL pública efectiva
+    base_url = settings.EFFECTIVE_TELEGRAM_PUBLIC_BASE_URL
+    if base_url:
+        logger.info({"event": "startup.telegram.sync_webhooks", "base_url": base_url})
+        async_session = get_async_sessionmaker()
+        async with async_session() as session:
+            active_integrations = await telegram_integration_repo.get_all_active(session)
+            async with httpx.AsyncClient(timeout=10) as client:
+                for integration in active_integrations:
+                    try:
+                        token = decrypt_secret(integration.bot_token_encrypted)
+                        webhook_url = f"{base_url}{settings.API_V1_STR}/telegram/webhook/{integration.vendor_id}/{integration.webhook_secret}"
+                        resp = await client.post(
+                            f"https://api.telegram.org/bot{token}/setWebhook",
+                            json={"url": webhook_url}
+                        )
+                        if resp.status_code == 200:
+                            logger.info({
+                                "event": "startup.telegram.webhook_synced",
+                                "vendor_id": integration.vendor_id,
+                                "bot": integration.bot_username
+                            })
+                        else:
+                            logger.warning({
+                                "event": "startup.telegram.webhook_sync_failed",
+                                "vendor_id": integration.vendor_id,
+                                "status": resp.status_code,
+                                "body": resp.text
+                            })
+                    except Exception as e:
+                        logger.error({
+                            "event": "startup.telegram.webhook_error",
+                            "vendor_id": integration.vendor_id,
+                            "error": str(e)
+                        })
+
     # Observabilidad mínima para despliegue de MP
     if settings.MP_WEBHOOK_URL:
         logger.info({"event": "startup.mp.webhook_url", "url": settings.MP_WEBHOOK_URL, "endpoint": "/api/v1/billing/webhooks/mp"})

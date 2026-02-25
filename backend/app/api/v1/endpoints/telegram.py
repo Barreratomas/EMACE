@@ -476,6 +476,11 @@ async def pause_vendor_bot(
     integration.paused_by_user_id = current_user.id
     integration.updated_at = now
     await session.commit()
+    
+    # Limpiar estados de orquestación en memoria
+    from app.core.botfather_orchestrator import botfather_orchestrator
+    botfather_orchestrator.clear_vendor_states(vendor_id)
+
     if token:
         try:
             async with httpx.AsyncClient(timeout=10) as client:
@@ -627,6 +632,70 @@ async def delete_vendor_bot(
         new_state={"active": False, "state": "deleted"},
     )
     return {"ok": True}
+
+@router.delete("/vendors/me/integrations/telegram/bot/hard-delete", status_code=status.HTTP_202_ACCEPTED)
+async def hard_delete_vendor_bot(
+    request: Request,
+    session: AsyncSession = Depends(get_async_session),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Elimina el bot del sistema Y solicita su eliminación física en BotFather.
+    Requiere que la sesión MTProto esté activa.
+    """
+    ensure_bot_management_permissions(current_user)
+    vendor_id = get_tenant_owner_id(current_user)
+    
+    result = await session.execute(
+        select(VendorTelegramIntegration).where(VendorTelegramIntegration.vendor_id == vendor_id)
+    )
+    integration = result.scalar_one_or_none()
+    if not integration or integration.state == "deleted":
+        raise HTTPException(status_code=404, detail="integration_not_found")
+
+    # 1. Verificar MTProto
+    if not _is_mtproto_allowed(vendor_id):
+        raise HTTPException(status_code=503, detail="mtproto_unavailable_for_hard_delete")
+    
+    record = await mtproto_session_repo.get_by_vendor_id(session, vendor_id)
+    if not record or not record.enabled or record.status not in ("ready", "enabled"):
+        raise HTTPException(status_code=400, detail="mtproto_session_required_for_hard_delete")
+
+    bot_username = integration.bot_username
+
+    # Limpiar estados previos (especialmente el de creación) antes de iniciar la eliminación
+    from app.core.botfather_orchestrator import botfather_orchestrator
+    botfather_orchestrator.clear_vendor_states(vendor_id)
+
+    # 2. Iniciar eliminación en BotFather
+    await botfather_orchestrator.start_bot_deletion(vendor_id, bot_username)
+
+    # 3. Eliminar lógicamente del sistema (como el delete normal)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    integration.is_active = False
+    integration.state = "deleted"
+    integration.deleted_at = now
+    integration.updated_at = now
+    await session.commit()
+
+    # Intentar quitar el webhook antes de que el bot muera
+    try:
+        token = decrypt_secret(integration.bot_token_encrypted)
+        async with httpx.AsyncClient(timeout=10) as client:
+            await client.post(f"https://api.telegram.org/bot{token}/setWebhook", json={"url": ""})
+    except Exception:
+        pass
+
+    await telegram_integration_audit.log_integration_change(
+        session=session,
+        vendor_id=vendor_id,
+        actor_user_id=current_user.id,
+        action="bot_hard_delete_requested",
+        old_state={"active": True},
+        new_state={"active": False, "state": "deleted", "hard_delete": True},
+    )
+
+    return {"ok": True, "status": "deletion_requested", "bot_username": bot_username}
 @router.get("/vendors/me/integrations/telegram/status", status_code=status.HTTP_200_OK)
 async def get_vendor_telegram_status(
     request: Request,
@@ -635,7 +704,10 @@ async def get_vendor_telegram_status(
 ):
     vendor_id = get_tenant_owner_id(current_user)
     result = await session.execute(
-        select(VendorTelegramIntegration).where(VendorTelegramIntegration.vendor_id == vendor_id)
+        select(VendorTelegramIntegration).where(
+            VendorTelegramIntegration.vendor_id == vendor_id,
+            VendorTelegramIntegration.state != "deleted"
+        )
     )
     integration = result.scalar_one_or_none()
     if not integration:
@@ -788,6 +860,96 @@ async def bot_auto_create(
     await session.commit()
     return {"ok": True, "status": "creating"}
 
+@router.get("/vendors/me/integrations/telegram/bot/discover", status_code=status.HTTP_200_OK)
+async def discover_existing_bots(
+    session: AsyncSession = Depends(get_async_session),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Descubre bots existentes del usuario consultando a BotFather vía MTProto.
+    """
+    vendor_id = get_tenant_owner_id(current_user)
+    allowed = _is_mtproto_allowed(vendor_id)
+    if not allowed:
+        raise HTTPException(status_code=503, detail="mtproto_unavailable")
+    
+    record = await mtproto_session_repo.get_by_vendor_id(session, vendor_id)
+    if not record or not record.enabled or record.status not in ("ready", "enabled"):
+        raise HTTPException(status_code=400, detail="session_not_configured")
+
+    try:
+        bots = await mtproto_manager.list_bots_from_father(vendor_id)
+        return {"ok": True, "bots": bots}
+    except Exception as e:
+        logger.error({"event": "telegram.bot.discover.error", "vendor_id": vendor_id, "error": str(e)})
+        raise HTTPException(status_code=500, detail="failed_to_discover_bots")
+
+@router.post("/vendors/me/integrations/telegram/bot/import", status_code=status.HTTP_200_OK)
+async def import_existing_bot(
+    body: Dict[str, Any],
+    session: AsyncSession = Depends(get_async_session),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Importa un bot existente proporcionando su token manualmente.
+    """
+    vendor_id = get_tenant_owner_id(current_user)
+    
+    # Límite: solo 1 bot por vendor hasta que se elimine la integración
+    from app.repositories.telegram_integration import telegram_integration_repo
+    existing = await telegram_integration_repo.get_by_vendor_id(session, vendor_id)
+    if existing and existing.state != "deleted":
+        raise HTTPException(status_code=409, detail="bot_already_exists")
+
+    token = str(body.get("token") or "").strip()
+    if not token:
+        raise HTTPException(status_code=400, detail="token_required")
+    
+    # Validar token con Telegram
+    bot_username = None
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get(f"https://api.telegram.org/bot{token}/getMe")
+            if resp.status_code == 200:
+                data = resp.json()
+                if data.get("ok"):
+                    bot_username = data["result"]["username"]
+            else:
+                raise HTTPException(status_code=400, detail="invalid_bot_token")
+    except httpx.HTTPError:
+        raise HTTPException(status_code=400, detail="telegram_api_unreachable")
+
+    if not bot_username:
+        raise HTTPException(status_code=400, detail="invalid_bot_token")
+
+    # Guardar integración
+    from app.core.security import encrypt_secret
+    from app.repositories.telegram_integration import telegram_integration_repo
+    from uuid import uuid4
+
+    enc = encrypt_secret(token)
+    secret = uuid4().hex
+    
+    integration = await telegram_integration_repo.upsert(
+        session=session,
+        vendor_id=vendor_id,
+        bot_username=bot_username,
+        bot_token_encrypted=enc,
+        webhook_secret=secret,
+    )
+
+    # Configurar Webhook si hay URL pública
+    base = settings.EFFECTIVE_TELEGRAM_PUBLIC_BASE_URL
+    if base:
+        webhook_url = f"{base}{settings.API_V1_STR}/telegram/webhook/{vendor_id}/{secret}"
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                await client.post(f"https://api.telegram.org/bot{token}/setWebhook", json={"url": webhook_url})
+        except httpx.HTTPError:
+            pass
+
+    return {"ok": True, "bot_username": bot_username}
+
 @router.get("/vendors/me/integrations/telegram/bot/status", status_code=status.HTTP_200_OK)
 async def bot_auto_create_status(
     session: AsyncSession = Depends(get_async_session),
@@ -796,7 +958,10 @@ async def bot_auto_create_status(
     vendor_id = get_tenant_owner_id(current_user)
     state = botfather_orchestrator.get_state(vendor_id)
     result = await session.execute(
-        select(VendorTelegramIntegration).where(VendorTelegramIntegration.vendor_id == vendor_id)
+        select(VendorTelegramIntegration).where(
+            VendorTelegramIntegration.vendor_id == vendor_id,
+            VendorTelegramIntegration.state != "deleted"
+        )
     )
     integration = result.scalar_one_or_none()
     status_str = "none"
