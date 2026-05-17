@@ -1,78 +1,90 @@
-# 🤖 EMACE (Ecosistema Multi-Agente Cognitivo Enterprise)
+# 🤖 EMACE: Ecosistema Multi-Agente Cognitivo Enterprise
 
-Este repositorio contiene **EMACE**, un sistema multi-agente avanzado capaz de realizar tareas complejas (facturación, soporte técnico, ventas) utilizando una arquitectura **Hub & Spoke** (Supervisor + Especialistas).
+EMACE es una plataforma avanzada de asistencia inteligente **proactiva** y **Multi-Tenant**, diseñada para resolver consultas complejas y ejecutar acciones empresariales (Facturación, Soporte, Ventas e Inventario) utilizando una arquitectura **Hub-and-Spoke** con agentes especializados coordinados por un Supervisor central.
 
-## 🌟 Características
+---
 
-- **Orquestación Inteligente**: Agente Supervisor (Router) que delega tareas.
-- **Herramientas Reales**: Conexión a Base de Datos SQL (PostgreSQL) y Vectorial (Qdrant).
-- **Memoria Persistente**: Historial de chat persistente y "Lecciones Aprendidas" (RAG).
-- **Auto-Corrección (Fase 5)**: Ciclo QA -> Feedback -> Reintento.
-- **API Profesional (Fase 6)**: Endpoints REST con FastAPI.
-- **Dashboard de Administración**: Interfaz Streamlit para monitoreo y pruebas.
+## 🔴 REGLA CRÍTICA DE DESARROLLO (WSL 2)
+Para un rendimiento óptimo y estabilidad de Docker/Next.js, este proyecto **DEBE** residir en el sistema de archivos nativo de Linux.
+- **NUNCA** uses `/mnt/c/` o carpetas sincronizadas con **OneDrive**.
+- **SIEMPRE** usa `~/projects/emace` o similar dentro de tu distribución de WSL (ej. Ubuntu).
 
-## 🛠️ Requisitos
+Consulta la [Guía de Configuración WSL 2](docs/WSL_SETUP.md) para preparar tu entorno.
 
-- Python 3.10+
-- Docker & Docker Compose
-- Clave de API de OpenRouter (en `.env`)
+---
 
-## 🚀 Instalación
+## 🚀 Inicio Rápido con Docker
 
-1.  **Clonar y configurar entorno**:
-    ```bash
-    python -m venv venv
-    venv\Scripts\activate
-    
-    cd backend
-    pip install -r requirements.txt
-    ```
+El flujo principal de desarrollo está 100% dockerizado. Las dependencias se instalan durante el build, garantizando consistencia.
 
-2.  **Configurar Variables de Entorno**:
-    Crea un archivo `.env` en la carpeta `backend` (ver `.env.example` o usar el existente) con:
-    ```
-    OPENROUTER_API_KEY=sk-...
-    DATABASE_URL=postgresql://admin:SecurePass123!@localhost:5433/agent_db
-    QDRANT_URL=http://localhost:6333
-    ```
-
-3.  **Levantar Infraestructura**:
-    Desde la raíz del proyecto:
-    ```bash
-    docker-compose up -d
-    ```
-
-4.  **Inicializar Datos**:
-    ```bash
-    cd backend
-    
-    # Migraciones SQL
-    alembic upgrade head
-    
-    # Inicializar Qdrant
-    python app/core/vector/client.py
-    
-    # Poblar Datos de Prueba
-    python seed_data.py
-    ```
-
-## 🏃‍♂️ Ejecución
-
-### API REST
-Inicia el servidor backend:
+### 1. Preparar el Entorno
 ```bash
+# Entrar al directorio del proyecto en WSL
+cd ~/projects/emace
+
+# Configurar variables de entorno
+cp backend/.env.example backend/.env
+# Edita backend/.env con tus API Keys (OpenRouter, etc.)
+```
+
+### 2. Levantar el Ecosistema
+```bash
+docker compose up -d
+```
+Esto iniciará:
+- **Backend (FastAPI)**: http://localhost:8000
+- **Frontend (Next.js + pnpm)**: http://localhost:3000
+- **Base de Datos (PostgreSQL)**
+- **Memoria Vectorial (Qdrant)**
+
+Consulta la [Guía de Docker](docs/DOCKER_GUIDE.md) para comandos avanzados (logs, builds, etc.).
+
+---
+
+## 🛠️ Stack Tecnológico
+
+- **Core Cognitivo**: Python 3.11 + LangGraph + LangChain.
+- **API**: FastAPI (Asíncrono, Type-Safe).
+- **Frontend**: Next.js 15 (App Router) + Tailwind CSS v4 + **pnpm**.
+- **Bases de Datos**: 
+  - **SQL**: PostgreSQL (SQLModel).
+  - **Vector**: Qdrant (RAG & Memoria Episódica).
+- **Infraestructura**: Docker Compose V2 (con límites de memoria y reinicio automático).
+
+---
+
+## 🏗️ Estructura del Proyecto
+
+- `/backend`: Agentes, lógica de negocio y API.
+- `/frontend`: Dashboard industrial moderno (Next.js).
+- `/docs`: Documentación detallada (Setup, Guía de Usuario, Arquitectura).
+
+---
+
+## 🧪 Desarrollo Local (Manual)
+
+Si necesitas ejecutar servicios fuera de Docker para debugging profundo:
+
+### Backend (Linux/WSL)
+```bash
+cd backend
+python3.11 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
 uvicorn app.api.main:app --reload
 ```
-Documentación interactiva disponible en: `http://localhost:8000/docs`
 
-### Dashboard de Administración
-Interfaz gráfica para probar el chat y ver datos:
+### Frontend (Linux/WSL)
 ```bash
-streamlit run app/dashboard/admin.py
+cd frontend
+pnpm install
+pnpm dev
 ```
 
-## 🧪 Tests
+---
 
-- **Test Básico**: `python test_supervisor.py`
-- **Test Auto-Corrección**: `python verify_fase5.py`
-- **Test API**: `python verify_fase6_api.py`
+## 📘 Documentación Adicional
+- [Arquitectura del Sistema](docs/DISEÑO_DEL_SISTEMA.md)
+- [Guía de Usuario](docs/GUIA_USUARIO.md)
+- [Setup de WSL 2](docs/WSL_SETUP.md)
+- [Guía de Docker Avanzada](docs/DOCKER_GUIDE.md)

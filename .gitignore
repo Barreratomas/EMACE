@@ -99,3 +99,5 @@ docker-compose.override.yml
 **/qdrant_data/
 **/storage/
 **/.cache/
+
+docs/PLAN_DE_IMPLEMENTACION_AVANZADO.md
