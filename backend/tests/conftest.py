@@ -5,9 +5,9 @@ import pytest_asyncio
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import NullPool
-from app.api.main import app
-from app.core.database.session import ASYNC_DATABASE_URL, get_async_session
-from app.core.config import settings
+from app.interfaces.api.main import app
+from app.infrastructure.database.session import ASYNC_DATABASE_URL, get_async_session
+from app.infrastructure.config import settings
 
 # FIX CRÍTICO PARA WINDOWS
 if sys.platform.startswith("win"):

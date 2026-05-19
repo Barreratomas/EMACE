@@ -1,11 +1,11 @@
 import asyncio
 import os
 from sqlmodel import Session, select
-from app.core.database.session import engine, get_async_session
-from app.core.database.models import User, Product
-from app.repositories.product import product_repo
-from app.core.memory.episodic import episodic_memory
-from app.core.rag.retriever import retriever
+from app.infrastructure.database.session import engine, get_async_session
+from app.domain.models import User, Product
+from app.infrastructure.repositories.product import product_repo
+from app.infrastructure.adapters.memory.episodic import episodic_memory
+from app.infrastructure.adapters.rag.retriever import retriever
 import uuid
 
 # --- Helpers ---

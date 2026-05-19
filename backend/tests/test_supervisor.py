@@ -1,8 +1,8 @@
 import asyncio
 import uuid
 from langchain_core.messages import HumanMessage
-from app.graph.workflow import workflow as graph
-from app.core.checkpoint import get_postgres_checkpointer
+from app.application.graph.workflow import workflow as graph
+from app.infrastructure.adapters.checkpoint import get_postgres_checkpointer
 
 async def main():
     print("🧪 INICIANDO TEST DE SUPERVISOR + TOOLS (Fase 4)...")

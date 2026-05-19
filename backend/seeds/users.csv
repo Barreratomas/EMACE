@@ -1,0 +1,5 @@
+name,email,role,plan_type,password,parent_email
+Admin Emace,admin@emace.com,admin,premium,AdminPass123!,
+Vendor Tech,tech@vendor.com,seller,basic,VendorPass123!,
+Vendor Fashion,fashion@vendor.com,seller,premium,VendorPass123!,
+Employee Tech,emp@tech.com,seller,basic,EmployeePass123!,tech@vendor.com

@@ -1,0 +1,3 @@
+vendor_email,customer_email,subject,description,priority,status
+tech@vendor.com,juan@perez.com,Error en laptop,No enciende la pantalla,high,open
+tech@vendor.com,maria@garcia.com,Configuración monitor,Colores muy saturados,low,resolved

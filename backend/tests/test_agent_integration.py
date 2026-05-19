@@ -1,9 +1,9 @@
 import pytest
 import pytest_asyncio
-from app.core.config import settings
-from app.core.database.models import User, Role, Product, ChatHistory
+from app.infrastructure.config import settings
+from app.domain.models import User, Role, Product, ChatHistory
 from sqlmodel import select, text
-from app.core.security import get_password_hash, create_access_token
+from app.infrastructure.security import get_password_hash, create_access_token
 from datetime import datetime
 
 @pytest_asyncio.fixture(scope="function")

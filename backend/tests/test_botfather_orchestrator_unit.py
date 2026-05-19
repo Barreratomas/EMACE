@@ -1,6 +1,6 @@
 import pytest
 import asyncio
-from app.core.botfather_orchestrator import botfather_orchestrator, _normalize_username, _extract_token, BotCreationState, BOTFATHER_ID
+from app.infrastructure.adapters.botfather_orchestrator import botfather_orchestrator, _normalize_username, _extract_token, BotCreationState, BOTFATHER_ID
 
 
 def test_normalize_username():
@@ -24,8 +24,8 @@ async def test_state_machine_transitions(monkeypatch):
     async def no_persist(self, vendor_id, st):
         await asyncio.sleep(0)
         return
-    monkeypatch.setattr("app.core.botfather_orchestrator.mtproto_manager.send_message", no_send)
-    monkeypatch.setattr("app.core.botfather_orchestrator.BotFatherOrchestrator._persist_state", no_persist)
+    monkeypatch.setattr("app.infrastructure.adapters.botfather_orchestrator.mtproto_manager.send_message", no_send)
+    monkeypatch.setattr("app.infrastructure.adapters.botfather_orchestrator.BotFatherOrchestrator._persist_state", no_persist)
 
     vendor_id = 9999
     try:

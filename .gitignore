@@ -101,3 +101,4 @@ docker-compose.override.yml
 **/.cache/
 
 docs/PLAN_DE_IMPLEMENTACION_AVANZADO.md
+.resolver.md

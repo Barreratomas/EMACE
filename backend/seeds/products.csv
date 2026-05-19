@@ -1,0 +1,5 @@
+vendor_email,name,category,price,type,status,stock,min_stock_threshold,description
+tech@vendor.com,Laptop Pro,Hardware,1500.0,physical,active,10,2,Potente laptop para desarrollo
+tech@vendor.com,Monitor 4K,Hardware,400.0,physical,active,5,1,Monitor ultra HD
+fashion@vendor.com,Camiseta Algodón,Ropa,25.0,physical,active,50,10,Camiseta básica 100% algodón
+fashion@vendor.com,Jeans Slim,Ropa,60.0,physical,active,30,5,Jeans entallados

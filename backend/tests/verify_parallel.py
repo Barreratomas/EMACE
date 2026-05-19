@@ -7,8 +7,8 @@ if sys.platform.startswith("win"):
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 from langchain_core.messages import HumanMessage
-from app.graph.workflow import workflow
-from app.core.checkpoint import get_postgres_checkpointer
+from app.application.graph.workflow import workflow
+from app.infrastructure.adapters.checkpoint import get_postgres_checkpointer
 
 async def main():
     print("🧪 Verificando Ejecución Paralela y Nuevas Tools...")

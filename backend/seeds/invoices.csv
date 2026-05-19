@@ -1,0 +1,4 @@
+vendor_email,customer_email,amount,status,due_date
+tech@vendor.com,juan@perez.com,1500.0,pending,2026-06-15
+tech@vendor.com,maria@garcia.com,400.0,paid,2026-05-10
+fashion@vendor.com,carlos@lopez.com,60.0,overdue,2026-05-01

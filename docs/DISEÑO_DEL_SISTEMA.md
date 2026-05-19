@@ -5,67 +5,56 @@
 
 ---
 
-## 2. Arquitectura de Alto Nivel
+## 2. Arquitectura del Sistema: Ports & Adapters (Hexagonal)
 
-El sistema sigue un patrón de **Hub-and-Spoke Jerárquico** con **Aislamiento de Inquilinos (Tenant Isolation)**. La comunicación entre el Frontend y el Backend es híbrida: REST para operaciones CRUD y WebSockets para interacción con agentes en tiempo real.
+El backend de EMACE está diseñado siguiendo los principios de la **Arquitectura Hexagonal**, lo que garantiza que la lógica de negocio (el núcleo) sea independiente de las tecnologías externas (base de datos, frameworks web, APIs de terceros).
+
+### 2.1 Capas de la Arquitectura y Reglas de Dependencia
+
+El sistema se rige por la **Regla de Dependencia**: las dependencias solo pueden apuntar hacia adentro, hacia el Dominio.
+
+1.  **Dominio (Domain)**: El corazón del sistema. Contiene las entidades de negocio ([models](file:///home/userl/projects/emace/backend/app/domain/models)), los esquemas de validación ([schemas](file:///home/userl/projects/emace/backend/app/domain/schemas)) y las definiciones de los **Puertos** (interfaces abstractas para repositorios y servicios externos). **Regla: No conoce a ninguna otra capa.**
+2.  **Aplicación (Application)**: Orquesta el flujo de datos. Contiene los **Casos de Uso** ([use_cases](file:///home/userl/projects/emace/backend/app/application/use_cases)) que implementan la lógica de orquestación y los flujos cognitivos definidos en **LangGraph** ([graph](file:///home/userl/projects/emace/backend/app/application/graph)). **Regla: Depende solo de Domain.**
+3.  **Infraestructura (Infrastructure)**: Implementa los adaptadores de salida. Contiene la configuración técnica ([config](file:///home/userl/projects/emace/backend/app/infrastructure/config.py)), la persistencia en base de datos ([repositories](file:///home/userl/projects/emace/backend/app/infrastructure/repositories)) y las integraciones con servicios externos como LLMs, Qdrant y Telegram ([adapters](file:///home/userl/projects/emace/backend/app/infrastructure/adapters)). **Regla: Implementa los Puertos de Domain y puede usar Application.**
+4.  **Interfaces (Interfaces)**: Adaptadores de entrada. Puntos por donde el mundo exterior interactúa con la aplicación, incluyendo la [API REST](file:///home/userl/projects/emace/backend/app/interfaces/api), WebSockets y el [Dashboard](file:///home/userl/projects/emace/backend/app/interfaces/dashboard) administrativo. **Regla: Inyecta casos de uso de Application.**
+
+### 2.2 Diagrama de Flujo y Componentes
 
 ```mermaid
 graph TD
-    subgraph "Capa de Presentación (Frontend)"
+    subgraph "Interfaces (Inbound Adapters)"
         UI[Next.js App / Tailwind v4]
-        SDK[Type-Safe API Client]
-        WS_Client[WebSocket Client]
+        API[FastAPI REST Endpoints]
+        WS[WebSocket Stream]
     end
 
-    Client[API Gateway / FastAPI] --> Auth[Auth Middleware]
-    Auth -- "Inject user_id" --> Supervisor
-    Cron[Scheduler / Proactividad] --> Supervisor
-    
-    UI --> SDK
-    SDK --> Client
-    WS_Client <--> WS_Endpoint[WebSocket Endpoint]
-    WS_Endpoint <--> Supervisor
+    subgraph "Application (Use Cases & Orchestration)"
+        UC[Use Cases]
+        LG[LangGraph Workflows]
+    end
 
-    subgraph "Capa Cognitiva (Context Aware)"
-        Supervisor{Supervisor / Router}
-        
-        subgraph "Subgrafo Facturación"
-            Billing[Billing Router] --> Researcher[Investigador SQL]
-            Researcher --> Analyst[Analista de Negocio]
-        end
-        
-        Tech[Agente Técnico]
-        Sales[Agente Ventas (Híbrido)]
-        QA[Agente de Calidad]
+    subgraph "Domain (Core Logic)"
+        Entities[Domain Models / SQLModel]
+        Ports[Ports / Abstract Interfaces]
     end
-    
-    subgraph "Capa de Datos (Multi-Tenant)"
-        SQL[(PostgreSQL)]
-        Vector[(Qdrant)]
-        Cold[(Cold Storage / JSON)]
+
+    subgraph "Infrastructure (Outbound Adapters)"
+        DB[PostgreSQL / SQLAlchemy]
+        Vector[Qdrant / Vector Search]
+        LLM[LLM / StepFun API]
+        Tele[Telegram / MTProto]
     end
-    
-    subgraph "Capa de Acción"
-        Email[Servidor SMTP]
-        Calendar[Google Calendar]
-    end
-    
-    Supervisor --> Billing
-    Supervisor --> Tech
-    Supervisor --> Sales
-    
-    Researcher <--> SQL
-    Tech <--> Vector
-    Sales <--> SQL & Vector
-    
-    Analyst --> QA
-    Tech --> QA
-    Sales --> QA
-    
-    QA -- "Aprobado" --> UI
-    QA -- "Acción" --> Email
-    QA -- "Acción" --> Calendar
-    QA -- "Rechazado" --> Supervisor
+
+    UI --> API
+    API --> UC
+    WS --> UC
+    UC --> LG
+    LG --> Entities
+    UC --> Ports
+    Ports <|-- DB
+    Ports <|-- Vector
+    Ports <|-- LLM
+    Ports <|-- Tele
 ```
 
 ---
@@ -205,12 +194,13 @@ Qdrant configurado con **Payload Indexing** para alto rendimiento.
 
 ## 6. Stack Tecnológico
 
-### 6.1 Backend (Core Cognitivo)
-- **Lenguaje**: Python 3.10+
+### 6.1 Backend (Arquitectura Hexagonal)
+- **Lenguaje**: Python 3.11+
+- **Patrón Arquitectónico**: Ports and Adapters (Hexagonal).
 - **Orquestación**: LangGraph + LangChain.
-- **API**: FastAPI (Dependency Injection).
+- **API**: FastAPI (Adaptador de entrada).
 - **Base de Datos**: PostgreSQL (SQLModel/SQLAlchemy) + Alembic.
-- **Vector Store**: Qdrant (Docker).
+- **Vector Store**: Qdrant (Adaptador de salida).
 - **Modelos LLM**: `stepfun/step-3.5-flash:free` (Optimizado para latencia y tool-calling).
 - **Comunicación**: WebSockets para streaming de agentes.
 

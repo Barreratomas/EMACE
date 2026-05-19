@@ -6,10 +6,10 @@ from langchain_core.runnables import RunnableConfig
 # Add backend to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from app.tools.inventory import add_product, set_product_status
-from app.tools.sales import search_product_catalog
-from app.core.database.session import engine
-from app.core.database.models import User, Product
+from app.infrastructure.adapters.tools.inventory import add_product, set_product_status
+from app.infrastructure.adapters.tools.sales import search_product_catalog
+from app.infrastructure.database.session import engine
+from app.domain.models import User, Product
 from sqlmodel import Session, select
 
 async def test_tool_context():

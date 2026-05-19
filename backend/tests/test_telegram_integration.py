@@ -7,12 +7,12 @@ from contextlib import asynccontextmanager
 
 from langchain_core.messages import AIMessage
 
-from app.api.main import app
-from app.api.v1.endpoints.telegram import _is_mtproto_allowed
-import app.api.v1.endpoints.telegram as telegram_module
-from app.core import telegram_mtproto as mtproto_module
-from app.core.config import settings
-import app.api.main as main_module
+from app.interfaces.api.main import app
+from app.interfaces.api.v1.endpoints.telegram import _is_mtproto_allowed
+import app.interfaces.api.v1.endpoints.telegram as telegram_module
+from app.infrastructure.adapters import telegram_mtproto as mtproto_module
+from app.infrastructure.config import settings
+import app.interfaces.api.main as main_module
 
 
 class DummyResponse:
@@ -419,9 +419,9 @@ async def test_mtproto_send_message_handles_floodwait_and_sets_backoff(monkeypat
 
     manager.ensure_connected = fake_ensure_connected  # type: ignore[assignment]
 
-    monkeypatch.setattr("app.core.telegram_mtproto.FloodWaitError", DummyFlood)
-    monkeypatch.setattr("app.core.telegram_mtproto.time.time", lambda: 1000.0)
-    monkeypatch.setattr("app.core.telegram_mtproto.random.uniform", lambda a, b: 0.0)
+    monkeypatch.setattr("app.infrastructure.adapters.telegram_mtproto.FloodWaitError", DummyFlood)
+    monkeypatch.setattr("app.infrastructure.adapters.telegram_mtproto.time.time", lambda: 1000.0)
+    monkeypatch.setattr("app.infrastructure.adapters.telegram_mtproto.random.uniform", lambda a, b: 0.0)
 
     before = manager._next_send_ts.get(vendor_id, 0.0)
     await manager.send_message(vendor_id, 123456, "hola mtproto")

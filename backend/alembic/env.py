@@ -16,7 +16,7 @@ sys.path.append(os.getcwd())
 load_dotenv()
 
 # Import your models here to register them with SQLModel.metadata
-from app.core.database import models
+from app.domain import models
 
 # this is the Alembic Config object
 config = context.config

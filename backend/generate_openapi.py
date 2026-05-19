@@ -1,5 +1,5 @@
 import json
-from app.api.main import app
+from app.interfaces.api.main import app
 
 def generate_openapi():
     with open("openapi.json", "w") as f:

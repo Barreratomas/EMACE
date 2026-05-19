@@ -2,9 +2,21 @@ import os
 import json
 import csv
 import sys
+from datetime import datetime, timezone
 from sqlmodel import Session, select
-from app.core.database.session import engine
-from app.core.database.models import User, Product, Appointment, Invoice, Ticket, Customer, Role
+from app.infrastructure.database.session import engine
+from app.domain.models.auth import User, Role
+from app.domain.models.inventory import Product
+from app.domain.models.customer import Customer
+from app.domain.models.billing import Invoice, VendorAccessState
+from app.domain.models.support import Ticket, Appointment
+from app.infrastructure.security import get_password_hash
+
+# Intentar importar el servicio de ingesta para RAG (opcional si falla)
+try:
+    from app.infrastructure.adapters.rag import ingestion as ingestion_service
+except ImportError:
+    ingestion_service = None
 
 # --- Helpers de Carga SQL ---
 
@@ -26,77 +38,122 @@ def seed_roles():
         print(f"✅ {count} roles insertados.")
 
 def seed_users(file_path: str):
-    print(f"📥 Cargando Usuarios (Vendedores) desde {file_path}...")
+    print(f"📥 Cargando Usuarios (Vendors e IAM) desde {file_path}...")
     with Session(engine) as session:
-        # Obtener el rol de admin por defecto
-        admin_role = session.exec(select(Role).where(Role.name == "admin")).first()
-        
+        roles = {r.name: r for r in session.exec(select(Role)).all()}
         count = 0
+        if not os.path.exists(file_path):
+            print(f"⚠️ No se encontró {file_path}")
+            return
+
         with open(file_path, mode='r', encoding='utf-8') as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                # Verificar si existe
+            rows = list(csv.DictReader(f))
+            
+            # Pasada 1: Vendors (Dueños de tienda)
+            for row in [r for r in rows if not r.get('parent_email')]:
                 existing = session.exec(select(User).where(User.email == row['email'])).first()
                 if not existing:
+                    role_name = row.get('role', 'admin')
+                    role = roles.get(role_name)
                     user = User(
                         name=row['name'],
                         email=row['email'],
                         plan_type=row.get('plan_type', 'basic'),
-                        role_id=admin_role.id if admin_role else None,
-                        password_hash="argon2_placeholder" # Placeholder para 9.2
+                        role_id=role.id if role else None,
+                        password_hash=get_password_hash(row.get('password', 'Default123!@#'))
                     )
                     session.add(user)
                     count += 1
-        session.commit()
-        print(f"✅ {count} usuarios (vendedores) insertados.")
+            session.commit()
 
-def seed_customers():
-    print(f"📥 Generando Clientes (Customers) de prueba...")
+            # Pasada 2: Usuarios IAM (Hijos)
+            for row in [r for r in rows if r.get('parent_email')]:
+                existing = session.exec(select(User).where(User.email == row['email'])).first()
+                if not existing:
+                    parent = session.exec(select(User).where(User.email == row['parent_email'])).first()
+                    if not parent:
+                        continue
+                    role_name = row.get('role', 'seller')
+                    role = roles.get(role_name)
+                    user = User(
+                        name=row['name'],
+                        email=row['email'],
+                        plan_type=parent.plan_type,
+                        role_id=role.id if role else None,
+                        parent_id=parent.id,
+                        password_hash=get_password_hash(row.get('password', 'Default123!@#'))
+                    )
+                    session.add(user)
+                    count += 1
+            session.commit()
+        print(f"✅ {count} usuarios procesados.")
+
+def seed_billing():
+    print("📥 Inicializando estados de Billing (Multi-tenant)...")
     with Session(engine) as session:
-        vendors = session.exec(select(User)).all()
-        if not vendors:
-            print("⚠️ No hay vendedores (Users) para asignar clientes.")
-            return
-
+        vendors = session.exec(select(User).where(User.parent_id == None)).all()
         count = 0
-        for vendor in vendors:
-            # Crear un cliente de prueba para cada vendedor
-            cust_email = f"cliente_{vendor.id}@test.com"
-            existing = session.exec(select(Customer).where(Customer.email == cust_email)).first()
+        for v in vendors:
+            existing = session.exec(select(VendorAccessState).where(VendorAccessState.vendor_id == v.id)).first()
             if not existing:
-                customer = Customer(
-                    user_id=vendor.id,
-                    name=f"Cliente de {vendor.name}",
-                    email=cust_email,
-                    phone="555-0000"
+                state = VendorAccessState(
+                    vendor_id=v.id,
+                    access_mode="subscription",
+                    source="trial",
+                    valid_until=datetime.now(timezone.utc).replace(tzinfo=None)
                 )
-                session.add(customer)
+                session.add(state)
                 count += 1
-        
+        session.commit()
+        print(f"✅ {count} estados de acceso creados.")
+
+def seed_customers(file_path: str):
+    print(f"📥 Cargando Clientes (Customers) desde {file_path}...")
+    with Session(engine) as session:
+        count = 0
+        if not os.path.exists(file_path):
+            print(f"⚠️ No se encontró {file_path}")
+            return
+            
+        with open(file_path, mode='r', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                vendor = session.exec(select(User).where(User.email == row['vendor_email'])).first()
+                if not vendor:
+                    continue
+                
+                existing = session.exec(select(Customer).where(
+                    Customer.email == row['email'], 
+                    Customer.user_id == vendor.id
+                )).first()
+                
+                if not existing:
+                    customer = Customer(
+                        user_id=vendor.id,
+                        name=row['name'],
+                        email=row['email'],
+                        phone=row.get('phone')
+                    )
+                    session.add(customer)
+                    count += 1
         session.commit()
         print(f"✅ {count} clientes insertados.")
 
 def seed_products(file_path: str):
-    print(f"📥 Cargando Productos desde {file_path}...")
+    print(f"📥 Cargando Productos (Inventory) desde {file_path}...")
     with Session(engine) as session:
-        # Asignar productos al primer vendedor por defecto
-        vendor = session.exec(select(User)).first()
-        if not vendor:
-            print("⚠️ No hay vendedores para asignar productos.")
+        count = 0
+        if not os.path.exists(file_path):
+            print(f"⚠️ No se encontró {file_path}")
             return
             
-        count = 0
         with open(file_path, mode='r', encoding='utf-8') as f:
             reader = csv.DictReader(f)
             for row in reader:
-                # Handle optional fields
-                stock_val = row.get('stock', '0')
-                stock = int(stock_val) if stock_val and stock_val.strip() else 0
-                
-                min_stock_val = row.get('min_stock_threshold', '')
-                min_stock = int(min_stock_val) if min_stock_val and min_stock_val.strip() else None
-
-                # Check duplicates by name AND user_id
+                vendor = session.exec(select(User).where(User.email == row['vendor_email'])).first()
+                if not vendor:
+                    continue
+                    
                 existing = session.exec(select(Product).where(
                     Product.name == row['name'], 
                     Product.user_id == vendor.id
@@ -108,39 +165,38 @@ def seed_products(file_path: str):
                         name=row['name'],
                         category=row['category'],
                         price=float(row['price']),
-                        stock=stock,
+                        stock=int(row.get('stock', 0)),
                         description=row['description'],
                         type=row.get('type', 'physical'),
                         status=row.get('status', 'active'),
-                        min_stock_threshold=min_stock,
-                        sla=row.get('sla')
+                        min_stock_threshold=int(row.get('min_stock_threshold', 5))
                     )
                     session.add(product)
                     count += 1
         session.commit()
-        print(f"✅ {count} productos insertados para el vendedor {vendor.name}.")
+        print(f"✅ {count} productos insertados.")
 
 def seed_invoices(file_path: str):
-    print(f"📥 Cargando Facturas desde {file_path}...")
+    print(f"📥 Cargando Facturas (Billing) desde {file_path}...")
     with Session(engine) as session:
         count = 0
+        if not os.path.exists(file_path):
+            print(f"⚠️ No se encontró {file_path}")
+            return
+            
         with open(file_path, mode='r', encoding='utf-8') as f:
             reader = csv.DictReader(f)
             for row in reader:
-                # El CSV original tenia 'client_email'.
-                # Ahora debemos buscar un Customer con ese email, O crear una factura para un cliente de prueba.
-                # Para simplificar la migración, asignaremos las facturas al primer cliente del primer vendedor.
+                vendor = session.exec(select(User).where(User.email == row['vendor_email'])).first()
+                if not vendor: continue
                 
-                vendor = session.exec(select(User)).first()
-                if not vendor: break
+                customer = session.exec(select(Customer).where(
+                    Customer.email == row['customer_email'],
+                    Customer.user_id == vendor.id
+                )).first()
                 
-                customer = session.exec(select(Customer).where(Customer.user_id == vendor.id)).first()
-                if not customer: 
-                    print("⚠️ No hay clientes para asignar facturas.")
-                    break
+                if not customer: continue
 
-                from datetime import datetime
-                # Check for duplicates? Assuming file is append-only or clean
                 invoice = Invoice(
                     user_id=vendor.id,
                     customer_id=customer.id,
@@ -151,11 +207,58 @@ def seed_invoices(file_path: str):
                 session.add(invoice)
                 count += 1
         session.commit()
-        print(f"✅ {count} facturas insertadas (asignadas a {customer.name}).")
+        print(f"✅ {count} facturas insertadas.")
 
-# --- Helpers de Carga Vectorial ---
+def seed_support(tickets_path: str, appointments_path: str):
+    print(f"📥 Cargando Tickets y Citas (Support) desde {tickets_path} y {appointments_path}...")
+    with Session(engine) as session:
+        # Seed Tickets
+        ticket_count = 0
+        if os.path.exists(tickets_path):
+            with open(tickets_path, mode='r', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    vendor = session.exec(select(User).where(User.email == row['vendor_email'])).first()
+                    customer = session.exec(select(Customer).where(Customer.email == row['customer_email'], Customer.user_id == (vendor.id if vendor else None))).first()
+                    if vendor and customer:
+                        ticket = Ticket(
+                            user_id=vendor.id,
+                            customer_id=customer.id,
+                            subject=row['subject'],
+                            description=row['description'],
+                            priority=row['priority'],
+                            status=row['status']
+                        )
+                        session.add(ticket)
+                        ticket_count += 1
+        
+        # Seed Appointments
+        appo_count = 0
+        if os.path.exists(appointments_path):
+            with open(appointments_path, mode='r', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    vendor = session.exec(select(User).where(User.email == row['vendor_email'])).first()
+                    customer = session.exec(select(Customer).where(Customer.email == row['customer_email'], Customer.user_id == (vendor.id if vendor else None))).first()
+                    if vendor and customer:
+                        appointment = Appointment(
+                            user_id=vendor.id,
+                            customer_id=customer.id,
+                            agent_role=row['agent_role'],
+                            datetime_slot=datetime.strptime(row['datetime_slot'], "%Y-%m-%d %H:%M:%S"),
+                            status=row['status']
+                        )
+                        session.add(appointment)
+                        appo_count += 1
+        
+        session.commit()
+        print(f"✅ {ticket_count} tickets y {appo_count} citas insertados.")
 
 def ingest_documents(directory: str):
+    if not ingestion_service:
+        print("⚠️ Servicio de ingesta no disponible.")
+        return
+        
     print(f"📚 Ingestando documentos desde {directory}...")
     supported_exts = [".pdf", ".md", ".txt"]
     count = 0
@@ -174,37 +277,25 @@ def ingest_documents(directory: str):
 # --- Main CLI ---
 
 def main():
-    if len(sys.argv) < 2:
-        print("Uso: python seed_data.py [all|sql|vector]")
-        print("Coloca tus archivos en 'data/inputs/'")
-        print("Archivos esperados: users.csv, products.csv, invoices.csv y documentos (.pdf/.md)")
-        return
-
-    mode = sys.argv[1]
-    input_dir = "data/inputs"
-    
-    # Rutas esperadas
-    users_csv = os.path.join(input_dir, "users.csv")
-    products_csv = os.path.join(input_dir, "products.csv")
-    invoices_csv = os.path.join(input_dir, "invoices.csv")
+    mode = sys.argv[1] if len(sys.argv) > 1 else "all"
+    seed_dir = "seeds"
     
     if mode in ["all", "sql"]:
-        print("--- 🛠️ Iniciando Carga SQL ---")
-        seed_roles() # Cargar roles antes que usuarios
-        if os.path.exists(users_csv): 
-            seed_users(users_csv)
-            seed_customers() # Generar clientes automaticos para los vendedores
-        else: print(f"ℹ️ No se encontró {users_csv}, saltando usuarios.")
-        
-        if os.path.exists(products_csv): seed_products(products_csv)
-        else: print(f"ℹ️ No se encontró {products_csv}, saltando productos.")
-
-        if os.path.exists(invoices_csv): seed_invoices(invoices_csv)
-        else: print(f"ℹ️ No se encontró {invoices_csv}, saltando facturas.")
+        print("--- 🛠️ Iniciando Carga SQL Multi-tenant ---")
+        seed_roles()
+        seed_users(os.path.join(seed_dir, "users.csv"))
+        seed_billing()
+        seed_customers(os.path.join(seed_dir, "customers.csv"))
+        seed_products(os.path.join(seed_dir, "products.csv"))
+        seed_invoices(os.path.join(seed_dir, "invoices.csv"))
+        seed_support(
+            os.path.join(seed_dir, "tickets.csv"),
+            os.path.join(seed_dir, "appointments.csv")
+        )
 
     if mode in ["all", "vector"]:
         print("\n--- 🧠 Iniciando Carga Vectorial ---")
-        ingest_documents(input_dir)
+        ingest_documents(seed_dir)
 
 if __name__ == "__main__":
     main()

@@ -1,6 +1,6 @@
 import asyncio
 from httpx import AsyncClient, ASGITransport
-from app.api.main import app
+from app.interfaces.api.main import app
 
 
 async def main():

@@ -53,11 +53,17 @@ Consulta la [Guía de Docker](docs/DOCKER_GUIDE.md) para comandos avanzados (log
 
 ---
 
-## 🏗️ Estructura del Proyecto
+## 🏗️ Estructura del Proyecto (Arquitectura Hexagonal)
 
-- `/backend`: Agentes, lógica de negocio y API.
-- `/frontend`: Dashboard industrial moderno (Next.js).
-- `/docs`: Documentación detallada (Setup, Guía de Usuario, Arquitectura).
+El backend sigue el patrón **Ports & Adapters**, desacoplando la lógica de negocio de la infraestructura técnica.
+
+- `/backend/app`:
+  - `domain/`: **Núcleo de Negocio**. Contiene modelos (SQLModel), esquemas (Pydantic), prompts y definiciones de Puertos (interfaces abstractas). *No tiene dependencias externas.*
+  - `application/`: **Casos de Uso**. Orquesta la lógica de negocio y flujos de trabajo (LangGraph). Depende solo del Dominio.
+  - `infrastructure/`: **Adaptadores de Salida**. Implementaciones concretas de persistencia (Repositories), clientes de APIs externas (LLM, Telegram), configuración y seguridad.
+  - `interfaces/`: **Adaptadores de Entrada**. Puntos de acceso externos como la API REST (FastAPI) y el Dashboard administrativo.
+- `/frontend`: Dashboard industrial moderno (Next.js 15 + Tailwind CSS v4).
+- `/docs`: Documentación técnica y funcional detallada.
 
 ---
 
@@ -71,7 +77,8 @@ cd backend
 python3.11 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-uvicorn app.api.main:app --reload
+# El servidor inicia desde el adaptador de entrada de la API
+uvicorn app.interfaces.api.main:app --reload
 ```
 
 ### Frontend (Linux/WSL)

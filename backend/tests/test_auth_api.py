@@ -2,11 +2,11 @@ import pytest
 import asyncio
 from datetime import datetime
 from httpx import AsyncClient, ASGITransport
-from app.api.main import app
-from app.core.config import settings
-from app.core.database.session import get_async_session
+from app.interfaces.api.main import app
+from app.infrastructure.config import settings
+from app.infrastructure.database.session import get_async_session
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.core.database.models import User, Role
+from app.domain.models import User, Role
 
 @pytest.mark.asyncio
 async def test_auth_flow():

@@ -2,7 +2,7 @@ import os
 from dotenv import load_dotenv
 from sqlmodel import Session, select
 from app.core.database.session import engine
-from app.core.database.models import VendorTelegramIntegration
+from app.models import VendorTelegramIntegration
 from app.core.security import decrypt_secret_with_key, encrypt_secret_with_key
 
 

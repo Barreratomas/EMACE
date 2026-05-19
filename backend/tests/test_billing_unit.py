@@ -1,7 +1,7 @@
 import pytest
 from types import SimpleNamespace
-from app.core.config import settings
-from app.api.v1.endpoints.billing import verify_mp_signature
+from app.infrastructure.config import settings
+from app.interfaces.api.v1.endpoints.billing import verify_mp_signature
 
 
 @pytest.mark.asyncio

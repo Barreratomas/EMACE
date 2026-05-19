@@ -1,6 +1,6 @@
 from sqlmodel import Session, select
-from app.core.database.session import engine
-from app.core.database.models import Product
+from app.infrastructure.database.session import engine
+from app.domain.models import Product
 
 def check_1k2():
     with Session(engine) as session:

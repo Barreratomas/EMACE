@@ -7,18 +7,7 @@ from pathlib import Path
 BASE_DIR = Path(__file__).parent.absolute()
 VENV_DIR = BASE_DIR / "venv"
 
-def get_venv_python() -> Path:
-    if sys.platform.startswith("win"):
-        return VENV_DIR / "Scripts" / "python.exe"
-    return VENV_DIR / "bin" / "python"
 
-def ensure_venv() -> Path:
-    venv_python = get_venv_python()
-    if not venv_python.exists():
-        run_command(f"\"{sys.executable}\" -m venv \"{VENV_DIR}\"")
-        run_command(f"\"{venv_python}\" -m pip install --upgrade pip")
-        run_command(f"\"{venv_python}\" -m pip install -r requirements.txt")
-    return venv_python
 
 def run_command(command, cwd=None, env=None):
     """Ejecuta un comando de consola con la configuración de entorno adecuada."""
@@ -49,18 +38,9 @@ def run_command(command, cwd=None, env=None):
         print("\n🛑 Detenido por el usuario.")
 
 def start_api(args):
-    """Inicia el servidor backend de FastAPI."""
-    run_command("uvicorn app.api.main:app --reload --host 0.0.0.0 --port 8000")
+    """Inicia el servidor backend de FastAPI (Uvicorn)."""
+    run_command("uvicorn app.interfaces.api.main:app --reload --host 0.0.0.0 --port 8000")
 
-def start_api_venv(args):
-    """Inicia el servidor creando venv si no existe (sin alembic)."""
-    venv_python = ensure_venv()
-    run_command(f"\"{venv_python}\" -m uvicorn app.api.main:app --reload --host 0.0.0.0 --port 8000")
-
- 
-def start_dashboard(args):
-    """Inicia el Panel de Administración (Streamlit)."""
-    run_command("streamlit run app/dashboard/admin.py")
 
 def run_migrate(args):
     """Ejecuta las migraciones de la base de datos para actualizar a la última versión (head)."""
@@ -143,7 +123,7 @@ def reset_db(args):
 
 def start_scheduler(args):
     """Inicia el planificador de tareas en segundo plano para trabajos proactivos."""
-    run_command("python -c \"from app.core.scheduler import run_scheduler; run_scheduler()\"")
+    run_command("python -c \"from app.infrastructure.adapters.scheduler import run_scheduler; run_scheduler()\"")
 
 def run_test(args):
     """Ejecuta las pruebas de verificación de la API."""
@@ -162,8 +142,7 @@ def main():
 
     # Registro de comandos
     subparsers.add_parser("api", help="Iniciar backend FastAPI (uvicorn)")
-    subparsers.add_parser("api-venv", help="Iniciar backend creando venv si no existe")
-    subparsers.add_parser("dashboard", help="Iniciar Panel de Administración (streamlit)")
+    subparsers.add_parser("api-venv", help="Iniciar backend en venv local (Fuera de Docker)")
     
     # Migraciones (Alembic)
     subparsers.add_parser("migrate", help="Aplicar migraciones pendientes a la base de datos")
@@ -185,8 +164,6 @@ def main():
     # Mapeo de comandos
     commands = {
         "api": start_api,
-        "api-venv": start_api_venv,
-        "dashboard": start_dashboard,
         "migrate": run_migrate,
         "makemigrations": makemigrations,
         "migrate-down": migrate_down,

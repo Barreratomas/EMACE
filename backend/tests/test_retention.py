@@ -9,8 +9,8 @@ from qdrant_client.http import models
 # Add backend to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from app.core.vector.client import get_qdrant_client, init_collections
-from app.core.memory.retention import archive_memories, COLD_STORAGE_DIR
+from app.infrastructure.adapters.vector.client import get_qdrant_client, init_collections
+from app.infrastructure.adapters.memory.retention import archive_memories, COLD_STORAGE_DIR
 
 def test_retention_policy():
     print("\n--- ❄️ Testing Retention Policy ---")
