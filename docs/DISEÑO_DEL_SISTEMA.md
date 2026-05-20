@@ -51,10 +51,10 @@ graph TD
     UC --> LG
     LG --> Entities
     UC --> Ports
-    Ports <|-- DB
-    Ports <|-- Vector
-    Ports <|-- LLM
-    Ports <|-- Tele
+    DB -.-> Ports
+    Vector -.-> Ports
+    LLM -.-> Ports
+    Tele -.-> Ports
 ```
 
 ---
