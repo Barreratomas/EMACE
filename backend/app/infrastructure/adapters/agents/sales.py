@@ -1,4 +1,4 @@
-from app.infrastructure.adapters.agents.factory import create_specialist_node
+from app.application.graph.specialist_factory import create_explicit_specialist_node
 from app.infrastructure.adapters.tools.sales import (
     search_product_catalog, 
     check_stock, 
@@ -12,7 +12,7 @@ from app.infrastructure.adapters.tools.billing import check_my_invoices
 from app.domain.prompts import CUSTOMER_SUPPORT_SYSTEM_PROMPT
 
 # Nodo estándar para Vendedores (Internal Sales)
-sales_node = create_specialist_node(
+sales_node = create_explicit_specialist_node(
     role="sales",
     tools=[search_product_catalog, check_stock, check_calendar_availability, schedule_appointment],
     system_prompt="""Eres un vendedor consultivo. Busca productos y stock. Agenda demos o reuniones comerciales.
@@ -23,7 +23,7 @@ sales_node = create_specialist_node(
 )
 
 # Nodo optimizado para Clientes Finales (Customer Support)
-customer_support_node = create_specialist_node(
+customer_support_node = create_explicit_specialist_node(
     role="customer_support",
     tools=[
         search_product_catalog, 

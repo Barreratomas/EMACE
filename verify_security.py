@@ -1,9 +1,9 @@
 import os
 from dotenv import load_dotenv
 from sqlmodel import Session, select
-from app.core.database.session import engine
-from app.models import VendorTelegramIntegration
-from app.core.security import decrypt_secret_with_key, encrypt_secret_with_key
+from app.infrastructure.database.session import engine
+from app.domain.models import VendorTelegramIntegration
+from app.infrastructure.security import decrypt_secret_with_key, encrypt_secret_with_key
 
 
 def verify_config() -> None:

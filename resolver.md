@@ -1,112 +1,38 @@
-Objetivo: Modernizar la arquitectura de agentes eliminando dependencias innecesarias del patrón ReAct y migrando a un workflow explícito con LangGraph.
+Objetivo: Modernizar la arquitectura de agentes eliminando dependencias innecesarias del patrón ReAct y migrando a un workflow explícito con LangGraph, integrado en la nueva Arquitectura Hexagonal.
 
-Contexto del proyecto:
-El sistema actual utiliza:
+ESTADO: ✅ COMPLETADO
 
-* LangChain Core (prompts, messages, runnables)
-* LangGraph
-* create_react_agent desde langgraph.prebuilt
-* herramientas personalizadas en app/tools
-* un sistema de RAG en app/core/rag/retriever
-* un supervisor que coordina agentes
-* Pydantic para validación
+Resumen de la refactorización:
+Se ha reemplazado el uso de `create_react_agent` por un sistema de subgrafos explícitos para cada especialista. La orquestación reside en la capa de Application y los nodos en Infrastructure.
 
-Problema actual:
-El sistema depende de create_react_agent (patrón ReAct). Este patrón introduce loops de razonamiento, mayor consumo de tokens y menos control del flujo. Queremos migrar hacia una arquitectura moderna basada en workflows explícitos con LangGraph.
+Tareas realizadas:
 
-Objetivo de la refactorización:
-Reemplazar agentes basados en create_react_agent por workflows explícitos usando StateGraph en LangGraph.
+1. ✅ Reorganizar el módulo de workflow: Se creó `app/application/graph/specialist_factory.py` para centralizar la construcción de grafos.
+2. ✅ Definir el estado: `SupervisorState` en `app/application/state.py` incluye ahora `tool_results`, `context` y `next_step`.
+3. ✅ Implementar nodos como Adaptadores: Se crearon `router_node`, `tool_node`, `rag_node` y `llm_node` en `app/infrastructure/adapters/agents/`.
+4. ✅ Construir el grafo con LangGraph: Se implementó la lógica condicional `should_continue` para control programático del flujo.
+5. ✅ Mantener compatibilidad: Se actualizaron todos los especialistas (Tech, Sales, Inventory, Billing) manteniendo sus prompts y herramientas originales.
+6. ✅ Documentar: Se actualizó `DISEÑO_DEL_SISTEMA.md` con la nueva arquitectura de subgrafos.
 
-Requisitos de arquitectura:
+Arquitectura final implementada:
 
-1. Mantener:
-
-* LangGraph como motor de orquestación
-* LangChain Core solo para primitives (messages, prompts, runnables)
-* Pydantic para modelos de estado
-* Las tools existentes en app/tools
-* El sistema RAG existente
-
-2. Eliminar o reducir:
-
-* Uso de create_react_agent
-* Lógica de razonamiento basada en ReAct
-* Loops implícitos de agente
-
-3. Implementar un workflow explícito usando StateGraph.
-
-Arquitectura objetivo:
-
-User Input
+User Input (Interfaces)
 ↓
-Router Node
+Orquestador / Supervisor (Application - workflow.py)
 ↓
-Tool Node (si se necesita tool)
+Especialista (Subgrafo en Application - specialist_factory.py)
+    ↳ RAG Node (Infrastructure)
+    ↳ Router Node (Infrastructure)
+    ↳ Tool Node (Infrastructure)
+    ↳ Conditional Edge (Lógica Python)
+    ↳ LLM Node (Infrastructure)
 ↓
-LLM Node
+QA Node (Infrastructure)
 ↓
-Response Node
+Response Node (Application)
 
-Tareas a realizar:
-
-1. Crear un módulo de workflow de agentes basado en LangGraph:
-   app/agents/workflow/
-
-2. Definir un estado del agente usando Pydantic o TypedDict:
-
-AgentState debe incluir:
-
-* messages
-* tool_results
-* context (para RAG)
-* next_step
-
-3. Implementar nodos separados:
-
-router_node:
-
-* decide si se necesita una tool o respuesta directa
-
-tool_node:
-
-* ejecuta herramientas desde app/tools
-
-rag_node:
-
-* consulta app.core.rag.retriever cuando sea necesario
-
-llm_node:
-
-* genera respuesta final usando el modelo definido en app.core.llm
-
-4. Construir el grafo con LangGraph:
-
-* usar StateGraph
-* definir nodos
-* definir edges explícitos
-* evitar loops implícitos
-
-5. Mantener compatibilidad con:
-
-* prompts existentes en app.core.prompts
-* tools actuales
-* supervisor si depende de los agentes
-
-6. Documentar:
-
-* nueva arquitectura
-* flujo del grafo
-* responsabilidades de cada nodo
-
-Resultado esperado:
-
-* eliminar dependencia de create_react_agent
-* arquitectura basada en workflows explícitos
-* mejor control del flujo del agente
-* menos consumo de tokens
-* mayor estabilidad en producción
-
-Importante:
-
-No eliminar LangChain Core. Solo evitar usar LangChain Agents o AgentExecutor. LangChain Core debe seguir usándose para prompts y mensajes.
-
+Beneficios obtenidos:
+* Eliminación de loops implícitos de ReAct.
+* Control total del flujo de los agentes.
+* Ahorro de tokens mediante lógica condicional programática.
+* Estricto cumplimiento de la Arquitectura Hexagonal.

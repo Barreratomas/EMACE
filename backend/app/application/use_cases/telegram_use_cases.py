@@ -5,7 +5,7 @@ from typing import Any, Dict, Optional
 from fastapi import HTTPException
 from app.domain.models import User, Customer, VendorTelegramIntegration, AuditLog
 from app.infrastructure.adapters.checkpoint import get_postgres_checkpointer
-from app.application.graph.workflow import workflow as graph
+from app.application.graph.workflow import workflow_builder as graph
 from app.infrastructure.security import decrypt_secret
 from app.domain.ports.repositories import ITelegramRepository, IAuthRepository
 import httpx

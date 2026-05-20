@@ -1,8 +1,8 @@
-from app.infrastructure.adapters.agents.factory import create_specialist_node
+from app.application.graph.specialist_factory import create_explicit_specialist_node
 from app.infrastructure.adapters.tools.tech import search_technical_docs, check_system_health
 from app.infrastructure.adapters.tools.calendar import check_calendar_availability, schedule_appointment
 
-tech_node = create_specialist_node(
+tech_node = create_explicit_specialist_node(
     role="tech",
     tools=[search_technical_docs, check_system_health, check_calendar_availability, schedule_appointment],
     system_prompt="""Eres un especialista técnico de soporte para NUESTRA plataforma interna.

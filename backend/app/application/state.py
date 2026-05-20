@@ -1,4 +1,4 @@
-from typing import Annotated, List, Optional, Sequence, TypedDict, Union
+from typing import Annotated, List, Optional, Sequence, TypedDict, Union, Dict, Any
 import operator
 from langchain_core.messages import BaseMessage
 
@@ -9,6 +9,10 @@ class SupervisorState(TypedDict):
     # El siguiente nodo a ejecutar (decidido por el Supervisor)
     next: str
     # Información del usuario actual (Inyectada desde el backend)
-    user_info: Optional[dict] = None
-    # Historial de conversación para contexto (puede ser redundante con messages, pero útil si se estructura diferente)
-    # Por ahora usamos messages estándar de LangGraph.
+    user_info: Optional[Dict[str, Any]] = None
+    # Resultados de herramientas (para workflow explícito)
+    tool_results: Optional[List[Dict[str, Any]]] = None
+    # Contexto recuperado (RAG)
+    context: Optional[str] = None
+    # Paso específico dentro de un flujo (opcional)
+    next_step: Optional[str] = None

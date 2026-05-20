@@ -1,4 +1,4 @@
-from app.infrastructure.adapters.agents.factory import create_specialist_node
+from app.application.graph.specialist_factory import create_explicit_specialist_node
 from app.infrastructure.adapters.tools.inventory import (
     add_product, 
     update_product_stock, 
@@ -9,7 +9,7 @@ from app.infrastructure.adapters.tools.inventory import (
     bulk_update_product_status
 )
 
-inventory_node = create_specialist_node(
+inventory_node = create_explicit_specialist_node(
     role="inventory",
     tools=[
         add_product, 

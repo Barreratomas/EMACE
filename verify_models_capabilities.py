@@ -1,6 +1,6 @@
 import asyncio
 from langchain_core.messages import HumanMessage
-from app.core.llm import get_llm
+from app.infrastructure.adapters.llm import get_llm
 
 async def verify_model(role: str):
     print(f"\n--- Verificando Rol: {role.upper()} ---")

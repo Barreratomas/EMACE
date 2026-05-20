@@ -1,10 +1,10 @@
 from langgraph.graph import StateGraph, END
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
-from langgraph.prebuilt import create_react_agent
 from app.application.state import SupervisorState
 from app.infrastructure.adapters.llm import get_llm
 from app.infrastructure.adapters.tools.billing import get_client_invoices, check_invoice_status
 from app.infrastructure.adapters.rag.retriever import retriever
+from app.application.graph.specialist_factory import create_explicit_specialist_node
 
 from langchain_core.runnables import RunnableConfig
 
@@ -17,35 +17,12 @@ def billing_subgraph_builder():
     Demuestra escalabilidad al romper una tarea compleja en pasos discretos.
     """
     
-    # 1. Definir Estado Local (opcional, o reusar SupervisorState)
-    # Aquí reusamos SupervisorState por simplicidad
-    
-    # 2. Definir Nodos Internos
-    
-    # Nodo A: Investigador (Usa Tools SQL)
-    def researcher_node(state: SupervisorState, config: RunnableConfig):
-        print("   🔍 [Billing Subgraph] Researcher buscando datos...")
-        
-        # Extraer user_id
-        user_id = config.get("configurable", {}).get("user_id")
-        
-        llm = get_llm(role="billing", temperature=0)
-        tools = [get_client_invoices, check_invoice_status]
-        agent = create_react_agent(llm, tools)
-        
-        # Recuperar lecciones aprendidas (Patrón común)
-        user_msg = state["messages"][-1]
-        lessons = ""
-        if isinstance(user_msg, HumanMessage):
-            lessons = retriever.search_lessons_learned(user_msg.content, user_id=user_id)
-            
-        system_prompt = "Eres un Investigador de Facturación. Tu ÚNICO trabajo es usar herramientas para buscar los datos crudos solicitados. No intentes explicar, solo extrae la data."
-        if lessons: system_prompt += f"\n\nLECCIONES: {lessons}"
-        
-        # Inyectar prompt
-        messages = [SystemMessage(content=system_prompt)] + list(state["messages"])
-        result = agent.invoke({"messages": messages}, config)
-        return {"messages": [result["messages"][-1]]}
+    # Nodo A: Investigador (Usa el nuevo factory explícito)
+    researcher_node = create_explicit_specialist_node(
+        role="billing",
+        tools=[get_client_invoices, check_invoice_status],
+        system_prompt="Eres un Investigador de Facturación. Tu ÚNICO trabajo es usar herramientas para buscar los datos crudos solicitados. No intentes explicar, solo extrae la data."
+    )
 
     # Nodo B: Analista (Interpreta datos sin tools)
     def analyst_node(state: SupervisorState, config: RunnableConfig):

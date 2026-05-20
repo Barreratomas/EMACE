@@ -82,14 +82,22 @@ graph TD
 - **Lógica**: StateGraph de LangGraph con soporte para subgrafos.
 
 ### 3.4 Agentes Especialistas (Workers)
-Cada agente opera dentro del contexto del `user_id` inyectado.
+Cada agente opera dentro del contexto del `user_id` inyectado. Siguiendo el plan de modernización de **workflows explícitos**, cada especialista ya no es un agente "caja negra", sino un subgrafo estructurado con control determinista.
+
+**Arquitectura Interna del Especialista (Subgrafo):**
+1.  **RAG Node**: Recupera contexto documental relevante antes de procesar la consulta.
+2.  **Router Node**: Un LLM ligero que decide si la tarea requiere una herramienta específica o puede responderse directamente.
+3.  **Tool Node**: Ejecuta la lógica técnica y genera un `ToolMessage`.
+4.  **Conditional Edge (should_continue)**: Lógica programática (Python) que analiza el resultado de la herramienta. Si el éxito es obvio (ej: "guardado"), salta directamente al LLM final ahorrando tokens.
+5.  **LLM Node**: Genera la respuesta final al usuario integrando el contexto y los resultados de las herramientas.
 
 | Agente | Responsabilidad | Herramientas (Tools) | Acceso a Datos |
 |--------|----------------|----------------------|----------------|
-| **Facturación** | Pagos, facturas, disputas | `get_invoice_details`, `check_payment_status` | SQL (Filtered by user_id) |
-| **Técnico** | Errores, configuración | `search_knowledge_base`, `check_system_health` | Vector DB (Filtered) |
-| **Ventas** | Venta Consultiva | `search_catalog`, `send_quote`, `schedule_demo` | SQL + Vector (Filtered) |
+| **Facturación** | Pagos, facturas, disputas | `get_client_invoices`, `check_invoice_status` | SQL (Filtered by user_id) |
+| **Técnico** | Errores, configuración | `search_technical_docs`, `check_system_health` | Vector DB (Filtered) |
+| **Ventas** | Venta Consultiva | `search_product_catalog`, `check_stock`, `create_order` | SQL + Vector (Filtered) |
 | **Inventario** | Gestión de Stock/Productos | `add_product`, `update_stock`, `get_product_details` | SQL (Filtered) |
+| **Customer Support** | Atención al cliente final | Todas las anteriores + Gestión de carritos | SQL + Vector (Filtered) |
 
 ### 3.5 Agente de Calidad (QA & Learning)
 - **Validación**: Filtra alucinaciones y riesgos.

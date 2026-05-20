@@ -14,7 +14,7 @@ llm = get_llm(role="qa", temperature=0)
 embeddings = get_embeddings()
 client = get_qdrant_client()
 
-def qa_agent(state: SupervisorState, config: RunnableConfig):
+async def qa_agent(state: SupervisorState, config: RunnableConfig):
     """
     Nodo de Quality Assurance (QA).
     Revisa el último mensaje generado por un agente.
@@ -25,14 +25,17 @@ def qa_agent(state: SupervisorState, config: RunnableConfig):
     user_id = config.get("configurable", {}).get("user_id")
     
     messages = state["messages"]
+    if not messages:
+        return {"messages": []}
+        
     last_message = messages[-1]
     
-    # Si el último mensaje es del usuario, no hay nada que validar (es input)
-    if isinstance(last_message, HumanMessage):
+    # QA solo valida mensajes de IA. Ignora humanos, sistema y herramientas.
+    if not isinstance(last_message, AIMessage):
         return {"messages": []}
 
-    # NUEVO: Si el último mensaje ya es una notificación de QA, evitamos el bucle infinito
-    if isinstance(last_message, SystemMessage) and "QA Notification" in str(last_message.content):
+    # Si el último mensaje ya es una notificación de QA, evitamos el bucle infinito
+    if "QA Notification" in str(last_message.content):
         return {"messages": []}
 
     # Extraer contenido y contexto
@@ -82,7 +85,7 @@ def qa_agent(state: SupervisorState, config: RunnableConfig):
     chain = prompt | llm | JsonOutputParser()
     
     try:
-        result = chain.invoke({})
+        result = await chain.ainvoke({})
         
         if result["approved"]:
             # Aprobado: Agregamos una señal explícita para el Supervisor
