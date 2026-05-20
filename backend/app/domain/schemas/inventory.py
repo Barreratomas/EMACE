@@ -1,5 +1,6 @@
 from typing import Optional
 from pydantic import BaseModel, field_validator, ConfigDict
+from app.infrastructure.security import sanitize_html
 
 class ProductBase(BaseModel):
     name: str

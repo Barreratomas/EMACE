@@ -25,7 +25,8 @@ def seed_roles():
     with Session(engine) as session:
         roles = [
             {"name": "admin", "description": "Administrador total del sistema", "permissions": ["*:*"]},
-            {"name": "seller", "description": "Vendedor con acceso a sus productos y clientes", "permissions": ["products:*", "customers:*", "invoices:*", "appointments:*"]},
+            {"name": "vendor", "description": "Dueño de tienda / Vendor", "permissions": ["products:*", "customers:*", "invoices:*", "appointments:*", "knowledge:*", "agents:*"]},
+            {"name": "seller", "description": "Vendedor con acceso limitado", "permissions": ["products:read", "customers:read", "invoices:read"]},
         ]
         count = 0
         for r_data in roles:

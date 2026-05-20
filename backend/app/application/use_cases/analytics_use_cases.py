@@ -98,12 +98,35 @@ class AnalyticsUseCases:
             ),
             MetricItem(
                 key="business_pending_revenue",
-                label="Facturación pendiente",
+                label="Pendiente de cobro",
                 value=f"{unpaid_summary['total']:.2f}",
             ),
             MetricItem(
-                key="business_orders_pending",
+                key="business_pending_orders",
                 label="Pedidos pendientes",
                 value=str(pending_orders),
             )
         ]
+
+    async def get_audit_stream(self, session: Any, user_id: int, limit: int = 100) -> List[Any]:
+        logs = await self.audit_repo.get_logs_by_user(session, user_id, limit=limit)
+        return [
+            {
+                "timestamp": log.timestamp,
+                "level": self._derive_level(log.action),
+                "agent_name": log.agent_name,
+                "action": log.action,
+                "details": log.details,
+            }
+            for log in logs
+        ]
+
+    def _derive_level(self, action: Optional[str]) -> str:
+        lower_action = (action or "").lower()
+        if any(word in lower_action for word in ["error", "fail", "exception"]):
+            return "ERROR"
+        elif any(word in lower_action for word in ["warn", "high_load"]):
+            return "WARN"
+        elif any(word in lower_action for word in ["success", "ok", "complete"]):
+            return "OK"
+        return "INFO"

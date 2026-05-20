@@ -199,6 +199,16 @@ class MtprotoClientManager:
                     {"event": "mtproto.send_error", "vendor_id": vendor_id, "error": str(e)[:200]}
                 )
 
+    async def is_connected(self, vendor_id: int) -> bool:
+        """Verifica si el cliente está conectado y autorizado."""
+        client = self._clients.get(vendor_id)
+        if not client:
+            return False
+        try:
+            return await client.is_user_authorized()
+        except Exception:
+            return False
+
     async def disconnect_vendor(self, vendor_id: int) -> None:
         client = self._clients.pop(vendor_id, None)
         if client:

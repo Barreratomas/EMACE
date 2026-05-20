@@ -1,5 +1,5 @@
 from typing import List
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.interfaces.api.deps import get_current_user, get_tenant_owner_id
@@ -53,3 +53,15 @@ async def get_vendor_business_metrics(
     """Muestra métricas de negocio, ventas y comportamiento de clientes"""
     tenant_id = get_tenant_owner_id(current_user)
     return await analytics_use_cases.get_business_metrics(session, tenant_id)
+
+
+@router.get("/audit/stream")
+async def get_audit_stream(
+    request: Request,
+    limit: int = Query(100, ge=1, le=500),
+    session: AsyncSession = Depends(get_async_session),
+    current_user: User = Depends(get_current_user),
+):
+    """Obtiene el flujo de eventos de auditoría para el dashboard en tiempo real"""
+    tenant_id = get_tenant_owner_id(current_user)
+    return await analytics_use_cases.get_audit_stream(session, tenant_id, limit=limit)

@@ -1,6 +1,6 @@
 from typing import Optional
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 class InvoiceBase(BaseModel):
     customer_id: int
@@ -12,18 +12,16 @@ class InvoiceCreate(InvoiceBase):
     pass
 
 class InvoiceResponse(InvoiceBase):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     user_id: int
     issued_at: datetime
 
-    class Config:
-        from_attributes = True
-
 class VendorAccessResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     vendor_id: int
     access_mode: str
     source: str
     valid_until: Optional[datetime] = None
-
-    class Config:
-        from_attributes = True

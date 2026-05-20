@@ -32,8 +32,8 @@ type ApiAgentEvent = {
   details: string;
 };
 
-function getToolIcon(icon: string) {
-  const normalized = icon.toLowerCase();
+function getToolIcon(icon: string | undefined | null) {
+  const normalized = (icon || 'database').toLowerCase();
   switch (normalized) {
     case 'database':
       return Database;

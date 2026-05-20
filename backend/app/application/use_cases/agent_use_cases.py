@@ -7,16 +7,17 @@ from datetime import datetime
 class AgentCatalogItem(BaseModel):
     id: str
     name: str
-    description: str
-    capabilities: List[str]
+    role: str
     status: str
-    icon: str
+    load: int
+    latency: str
+    domain: str
 
 class AgentToolItem(BaseModel):
-    id: str
-    name: str
-    description: str
-    category: str
+    key: str
+    label: str
+    agents: List[str]
+    icon: str
 
 class AgentEventItem(BaseModel):
     timestamp: datetime
@@ -27,43 +28,62 @@ class AgentEventItem(BaseModel):
 
 AGENT_CATALOG = [
     {
+        "id": "supervisor-bot",
+        "name": "Supervisor Central",
+        "role": "Orquestador de Misiones",
+        "status": "online",
+        "load": 12,
+        "latency": "45ms",
+        "domain": "GLOBAL"
+    },
+    {
+        "id": "tech-bot",
+        "name": "Agente Técnico",
+        "role": "Soporte y Diagnóstico",
+        "status": "online",
+        "load": 45,
+        "latency": "120ms",
+        "domain": "SOPORTE"
+    },
+    {
         "id": "sales-bot",
-        "name": "Agente de Ventas",
-        "description": "Especializado en persuasión, cierre de ventas y manejo de objeciones.",
-        "capabilities": ["Ventas", "Negociación", "Catálogo"],
-        "status": "active",
-        "icon": "ShoppingBag",
+        "name": "Agente Comercial",
+        "role": "Ventas y Negociación",
+        "status": "busy",
+        "load": 88,
+        "latency": "250ms",
+        "domain": "VENTAS"
     },
     {
-        "id": "support-bot",
-        "name": "Agente de Soporte",
-        "description": "Resolución de dudas técnicas, estado de pedidos y post-venta.",
-        "capabilities": ["Soporte", "FAQs", "Pedidos"],
-        "status": "active",
-        "icon": "LifeBuoy",
-    },
-    {
-        "id": "analyst-bot",
-        "name": "Agente Analista",
-        "description": "Análisis de datos de ventas, comportamiento de clientes y tendencias.",
-        "capabilities": ["Analytics", "Reporting", "Insights"],
-        "status": "active",
-        "icon": "BarChart2",
-    },
-    {
-        "id": "ops-bot",
-        "name": "Agente de Operaciones",
-        "description": "Gestión de inventario, logística y automatización de tareas.",
-        "capabilities": ["Inventario", "Logística", "Automatización"],
-        "status": "active",
-        "icon": "Cpu",
-    },
+        "id": "billing-bot",
+        "name": "Agente de Facturación",
+        "role": "Gestión de Pagos",
+        "status": "offline",
+        "load": 0,
+        "latency": "0ms",
+        "domain": "FINANZAS"
+    }
 ]
 
 AGENT_TOOLS = [
-    {"id": "t1", "name": "Búsqueda en RAG", "description": "Acceso a base de conocimiento", "category": "Conocimiento"},
-    {"id": "t2", "name": "Gestor de Inventario", "description": "Consulta y reserva de stock", "category": "E-commerce"},
-    {"id": "t3", "name": "Calculadora de Precios", "description": "Cálculo de impuestos y descuentos", "category": "Finanzas"},
+    {
+        "key": "rag-search",
+        "label": "Búsqueda Semántica",
+        "agents": ["tech-bot", "sales-bot"],
+        "icon": "database"
+    },
+    {
+        "key": "stock-manager",
+        "label": "Control de Inventario",
+        "agents": ["sales-bot"],
+        "icon": "network"
+    },
+    {
+        "key": "billing-api",
+        "label": "Pasarela de Pagos",
+        "agents": ["billing-bot"],
+        "icon": "cpu"
+    }
 ]
 
 class AgentUseCases:

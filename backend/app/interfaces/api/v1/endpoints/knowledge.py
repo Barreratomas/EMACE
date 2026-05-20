@@ -26,6 +26,14 @@ async def list_knowledge_documents(
     owner_id = get_tenant_owner_id(current_user)
     return await knowledge_use_cases.list_documents(owner_id)
 
+@router.get("/usage")
+async def get_knowledge_usage(
+    current_user: User = Depends(allowed_roles)
+):
+    """Obtiene el uso actual de almacenamiento de la base de conocimiento"""
+    owner_id = get_tenant_owner_id(current_user)
+    return await knowledge_use_cases.get_usage(owner_id)
+
 @router.delete("/documents/{source_name}")
 async def delete_knowledge_document(
     source_name: str,

@@ -98,6 +98,8 @@ class TelegramUseCases:
                 await session.commit()
 
         duration_ms = int((time.monotonic() - start) * 1000)
+        
+        # Registrar métrica de auditoría
         metric = AuditLog(
             user_id=vendor.id,
             agent_name="TelegramWebhook",
@@ -108,6 +110,7 @@ class TelegramUseCases:
         session.add(metric)
         await session.commit()
 
+        # Enviar respuesta al usuario vía API de Telegram
         if reply_text:
             try:
                 token = decrypt_secret(integration.bot_token_encrypted)
@@ -117,6 +120,43 @@ class TelegramUseCases:
                             f"https://api.telegram.org/bot{token}/sendMessage",
                             json={"chat_id": chat_id, "text": reply_text},
                         )
-            except: pass
+            except Exception as e:
+                logger.error(f"Error sending telegram response: {e}")
 
-        return {"ok": True}
+        return {"ok": success}
+
+    async def get_status(self, session: Any, vendor_id: int) -> Dict[str, Any]:
+        integration = await self.telegram_repo.get_by_vendor_id(session, vendor_id)
+        if not integration:
+            return {
+                "is_active": False,
+                "state": "not_configured",
+                "bot_username": None,
+                "last_error": None
+            }
+        
+        return {
+            "is_active": integration.is_active,
+            "state": integration.state,
+            "bot_username": integration.bot_username,
+            "last_error": integration.last_error,
+            "updated_at": integration.updated_at
+        }
+
+    async def get_mtproto_status(self, session: Any, vendor_id: int) -> Dict[str, Any]:
+        from app.infrastructure.adapters.telegram_mtproto import mtproto_manager
+        
+        is_connected = await mtproto_manager.is_connected(vendor_id)
+        
+        # Intentar obtener info de la sesión desde la DB
+        from app.domain.models.telegram import VendorMtprotoSession
+        from sqlmodel import select
+        res = await session.execute(select(VendorMtprotoSession).where(VendorMtprotoSession.vendor_id == vendor_id))
+        sess = res.scalar_one_or_none()
+
+        return {
+            "is_connected": is_connected,
+            "enabled": sess.enabled if sess else False,
+            "phone": sess.phone if sess else None,
+            "last_active": sess.updated_at if sess else None
+        }

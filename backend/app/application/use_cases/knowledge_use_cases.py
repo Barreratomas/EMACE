@@ -48,6 +48,15 @@ class KnowledgeUseCases:
     async def list_documents(self, user_id: int) -> List[Dict[str, Any]]:
         return self.knowledge_port.list_documents(user_id=user_id)
 
+    async def get_usage(self, user_id: int) -> Dict[str, Any]:
+        usage_bytes = self.knowledge_port.get_vendor_usage_bytes(user_id)
+        max_bytes = settings.KNOWLEDGE_MAX_MB_PER_VENDOR * 1024 * 1024
+        return {
+            "used_bytes": usage_bytes,
+            "max_bytes": max_bytes,
+            "percentage": round((usage_bytes / max_bytes) * 100, 2) if max_bytes > 0 else 0
+        }
+
     async def delete_document(self, user_id: int, source_name: str) -> Dict[str, bool]:
         success = self.knowledge_port.delete_document(user_id, source_name)
         return {"success": success}
