@@ -1,10 +1,10 @@
-# 🐋 Guía de Docker y Docker Compose (Arquitectura Optimizada)
+# Guía de Docker y Docker Compose (Arquitectura Optimizada)
 
 Esta guía describe el flujo de trabajo profesional con Docker en EMACE, diseñado para máxima velocidad en WSL 2 y aislamiento total de dependencias.
 
 ---
 
-## 🚀 Conceptos Clave del Nuevo Flujo
+## Conceptos Clave del Nuevo Flujo
 
 1. **Inmutabilidad en Build**: Las dependencias (Python y Node) se instalan durante la construcción de la imagen (`docker build`). No hay instalaciones en runtime al iniciar el contenedor.
 2. **Sin venv en el Contenedor**: Docker ya proporciona el aislamiento necesario. No usamos entornos virtuales (`venv`) dentro de la imagen de Python, lo que reduce la complejidad y el tamaño.
@@ -13,7 +13,7 @@ Esta guía describe el flujo de trabajo profesional con Docker en EMACE, diseña
 
 ---
 
-## 🛠️ Comandos Esenciales (WSL 2)
+## Comandos Esenciales (WSL 2)
 
 ### 1. Iniciar el Entorno
 Ejecuta esto desde tu terminal de WSL (Ubuntu):
@@ -43,7 +43,7 @@ docker compose exec backend python seed_data.py all
 
 ---
 
-## 📁 Configuración Técnica
+## Configuración Técnica
 
 ### Backend (Dockerfile)
 - **Base**: `python:3.11-slim`.
@@ -60,7 +60,7 @@ El archivo `.dockerignore` en la raíz es crítico para evitar que `node_modules
 
 ---
 
-## ⚡ Optimizaciones en docker-compose.yml
+## Optimizaciones en docker-compose.yml
 
 El proyecto utiliza características modernas de Compose:
 - **`mem_limit`**: Restricción de RAM por servicio para proteger tu host.
@@ -72,7 +72,7 @@ El proyecto utiliza características modernas de Compose:
 
 ---
 
-## 🔴 Solución de Problemas (WSL)
+## Solución de Problemas (WSL)
 
 ### El Hot Reload no funciona
 **Causa**: Estás trabajando en `/mnt/c/`.

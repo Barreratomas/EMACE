@@ -63,6 +63,21 @@ services:
 
     mem_limit: 128m
 
+  redis:
+    image: redis:7-alpine
+    container_name: agent_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    networks:
+      - agent_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    mem_limit: 256m
+
   backend:
     build:
       context: ./backend
@@ -87,6 +102,7 @@ services:
       DATABASE_URL: postgresql+psycopg://admin:SecurePass123!@postgres:5432/agent_db
       QDRANT_HOST: qdrant
       QDRANT_PORT: 6333
+      REDIS_URL: redis://redis:6379/0
       PYTHONUNBUFFERED: 1
 
     networks:
@@ -97,6 +113,39 @@ services:
         condition: service_healthy
       qdrant:
         condition: service_started
+      redis:
+        condition: service_healthy
+
+    mem_limit: 1g
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: agent_worker
+    restart: unless-stopped
+    working_dir: /app
+    command: arq app.infrastructure.worker.WorkerSettings
+    volumes:
+      - ./backend:/app
+      - /app/venv
+    env_file:
+      - ./backend/.env
+    environment:
+      DATABASE_URL: postgresql+psycopg://admin:SecurePass123!@postgres:5432/agent_db
+      QDRANT_HOST: qdrant
+      QDRANT_PORT: 6333
+      REDIS_URL: redis://redis:6379/0
+      PYTHONUNBUFFERED: 1
+    networks:
+      - agent_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+      redis:
+        condition: service_healthy
 
     mem_limit: 1g
 
@@ -111,7 +160,7 @@ services:
     working_dir: /app
 
     env_file:
-      - ./frontend/.env.local
+      - ./frontend/.env
 
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1

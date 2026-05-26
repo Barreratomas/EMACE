@@ -11,12 +11,19 @@ from app.infrastructure.database.session import get_async_session
 from app.domain.models import User, VendorAccessState
 from app.infrastructure.repositories.auth import AuthRepository
 from app.infrastructure.security import decode_token
+from app.domain.ports.background_jobs import IBackgroundJobPort
+from app.infrastructure.adapters.background_jobs.arq_adapter import ArqAdapter
 
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl=f"{settings.API_V1_STR}/auth/login"
 )
 
 auth_repo = AuthRepository()
+background_job_adapter = ArqAdapter(settings)
+
+async def get_background_job_port() -> IBackgroundJobPort:
+    """Dependencia para obtener el adaptador de tareas en segundo plano."""
+    return background_job_adapter
 
 async def get_current_user(
     session: AsyncSession = Depends(get_async_session),

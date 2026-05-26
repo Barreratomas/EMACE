@@ -1,13 +1,13 @@
-# 🐧 Guía de Configuración WSL 2 (Entorno de Alto Rendimiento)
+# Guía de Configuración WSL 2 (Entorno de Alto Rendimiento)
 
 Esta guía explica cómo configurar el entorno de desarrollo optimizado para **EMACE**. Trabajar directamente en el sistema de archivos de Linux dentro de WSL 2 es **obligatorio** para garantizar el rendimiento, la estabilidad de Docker y el funcionamiento de los "watchers" de archivos.
 
 ---
 
-## 🔴 REGLA CRÍTICA DE SUPERVIVENCIA
+## REGLA CRÍTICA DE SUPERVIVENCIA
 **NUNCA** trabajes sobre `/mnt/c/` o carpetas sincronizadas con **OneDrive**.
-- ❌ **PROHIBIDO**: `/mnt/c/Users/Nombre/Documents/emace`
-- ✅ **CORRECTO**: `~/projects/emace` (dentro del sistema de archivos nativo de Linux)
+- **PROHIBIDO**: `/mnt/c/Users/Nombre/Documents/emace`
+- **CORRECTO**: `~/projects/emace` (dentro del sistema de archivos nativo de Linux)
 
 **¿Por qué?**
 1. **Rendimiento**: Acceder a archivos de Windows desde Linux es hasta 100 veces más lento.
@@ -48,7 +48,7 @@ git clone <URL_DEL_REPO> emace
 cd emace
 ```
 
-### 🛠️ Apertura con VS Code
+### Apertura con VS Code
 Para editar archivos de Linux con la interfaz de Windows:
 1. Instala la extensión **WSL** en VS Code (ID: `ms-vscode-remote.remote-wsl`).
 2. En la terminal de Ubuntu, dentro de la carpeta del proyecto, escribe:

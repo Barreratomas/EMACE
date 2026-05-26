@@ -1,15 +1,21 @@
 import os
 import shutil
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from fastapi import UploadFile, HTTPException, status
 from app.domain.ports.repositories import IKnowledgePort
+from app.domain.ports.background_jobs import IBackgroundJobPort
 from app.infrastructure.config import settings
 
 class KnowledgeUseCases:
-    def __init__(self, knowledge_port: IKnowledgePort):
+    def __init__(
+        self, 
+        knowledge_port: IKnowledgePort,
+        background_job_port: Optional[IBackgroundJobPort] = None
+    ):
         self.knowledge_port = knowledge_port
+        self.background_job_port = background_job_port
 
-    async def upload_document(self, file: UploadFile, user_id: int) -> Dict[str, str]:
+    async def upload_document(self, file: UploadFile, user_id: int) -> Dict[str, Any]:
         allowed_extensions = [".pdf", ".md", ".txt"]
         file_ext = os.path.splitext(file.filename)[1].lower()
         
@@ -37,12 +43,32 @@ class KnowledgeUseCases:
                     detail=f"Se alcanzó el límite de {settings.KNOWLEDGE_MAX_MB_PER_VENDOR}MB. Elimina documentos antiguos."
                 )
 
-            # Ingestión (esto es síncrono en el servicio original, lo mantenemos así o lo envolvemos en un thread si es necesario)
+            # Si tenemos un puerto de tareas en segundo plano, encolamos y delegamos la eliminación al worker
+            if self.background_job_port:
+                task_id = await self.background_job_port.enqueue_task(
+                    "ingest_document_task",
+                    file_path=file_path,
+                    user_id=user_id
+                )
+                return {
+                    "message": f"Archivo '{file.filename}' recibido. Procesando en segundo plano...",
+                    "task_id": task_id,
+                    "status": "processing"
+                }
+
+            # Fallback a procesamiento síncrono (legacy/test)
             self.knowledge_port.ingest_file(file_path, user_id=user_id)
             
             return {"message": f"Archivo '{file.filename}' procesado correctamente."}
-        finally:
+        except Exception as e:
+            # Si algo falla antes de encolar, nos aseguramos de limpiar el archivo
             if os.path.exists(file_path):
+                os.remove(file_path)
+            raise e
+        # Eliminamos el finally que borraba el archivo, ya que ahora el worker se encarga de eso
+        # si se encoló exitosamente. Si no se encoló (fallback), se borra arriba o aquí abajo:
+        finally:
+            if not self.background_job_port and os.path.exists(file_path):
                 os.remove(file_path)
 
     async def list_documents(self, user_id: int) -> List[Dict[str, Any]]:

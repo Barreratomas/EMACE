@@ -53,6 +53,9 @@ class Settings(BaseSettings):
     # Database
     DATABASE_URL: str
     
+    # Redis (Background Jobs)
+    REDIS_URL: str = "redis://localhost:6379/0"
+    
     # Security
     SECRET_KEY: str 
     ALGORITHM: str = "HS256"

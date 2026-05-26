@@ -19,7 +19,8 @@ from app.domain.models import (
 from app.infrastructure.adapters.comm.notifications import dispatch_notifications
 from app.infrastructure.security import decrypt_secret
 from app.infrastructure.adapters.telegram_mtproto import mtproto_manager
-
+from app.infrastructure.adapters.background_jobs.arq_adapter import ArqAdapter
+from app.infrastructure.config import settings
 
 INVOICE_DUE_DAYS = 3
 APPOINTMENT_WINDOW_HOURS = 24
@@ -350,30 +351,41 @@ def _check_telegram_integrations(session: Session) -> None:
             dedup_key=dedup_key,
         )
 
-def run_once() -> None:
+async def run_once() -> None:
+    from app.infrastructure.config import settings
+    adapter = ArqAdapter(settings)
+    
     with Session(engine) as session:
         users = session.exec(select(User)).all()
-
+        
+        # Encolar chequeos para cada vendor
+        import asyncio
         for user in users:
-            _check_low_stock(session, user)
-            _check_zero_stock_auto_pause(session, user)
-            _check_invoice_due(session, user)
-            _check_appointments(session, user)
-            _check_trial_expiration(session, user)
+            # Encolar tarea en el worker
+            asyncio.run(adapter.enqueue_task("run_vendor_checks_task", vendor_id=user.id))
 
+        # Chequeos globales
         _billing_sanitize(session)
         _telegram_health_check(session)
         _check_telegram_integrations(session)
         _mtproto_heartbeat(session)
         session.commit()
-        dispatch_notifications(session)
+        
+        # El despacho de notificaciones ahora lo manejará el worker 
+        # a través de AuditLogs (Fase 3b)
+        # dispatch_notifications(session) 
         session.commit()
 
 
 def run_scheduler() -> None:
+    import asyncio
     scheduler = BlockingScheduler(timezone=timezone.utc)
+    
+    def _run_once_sync():
+        asyncio.run(run_once())
+
     scheduler.add_job(
-        run_once,
+        _run_once_sync,
         "interval",
         minutes=5,
         id="business_rules_scheduler",

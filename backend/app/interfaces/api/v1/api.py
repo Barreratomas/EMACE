@@ -11,6 +11,7 @@ from app.interfaces.api.v1.endpoints import (
     iam,
     platform,
     telegram,
+    tasks,
 )
 
 api_router = APIRouter()
@@ -41,3 +42,4 @@ api_router.include_router(knowledge.router, prefix="/knowledge", tags=["knowledg
 api_router.include_router(iam.router, prefix="/iam", tags=["iam"])
 api_router.include_router(billing.router, prefix="/billing", tags=["billing"])
 api_router.include_router(telegram.router, tags=["telegram"])
+api_router.include_router(tasks.router, prefix="/tasks", tags=["tasks"])

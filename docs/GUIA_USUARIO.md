@@ -1,4 +1,4 @@
-# 📘 Guía de Usuario: EMACE (Agente AI Enterprise)
+# Guía de Usuario: EMACE (Agente AI Enterprise)
 
 Bienvenido a **EMACE**. Esta guía te ayudará a configurar y poner en marcha tu propio asistente de inteligencia artificial para tu empresa, capaz de manejar ventas, soporte técnico y facturación.
 
@@ -36,14 +36,14 @@ El sistema necesita credenciales para interactuar con los modelos de lenguaje y 
 
 El cerebro del agente se alimenta de la información que tú le proporciones.
 
-### 📊 Datos de Negocio
+### Datos de Negocio
 Puedes cargar datos masivos utilizando scripts de carga. El sistema espera archivos en formatos compatibles (CSV/JSON) o vía API.
 
-### 📚 Base de Conocimiento (PDF, MD, TXT)
+### Base de Conocimiento (PDF, MD, TXT)
 El agente utiliza **RAG (Retrieval Augmented Generation)**. Puedes subir documentos que el agente consultará antes de responder.
 - Los documentos se procesan y se guardan en la base de datos vectorial **Qdrant**.
 
-### 📥 Procesar los datos iniciales
+### Procesar los datos iniciales
 Desde la terminal de WSL:
 ```bash
 docker compose exec backend python seed_data.py all

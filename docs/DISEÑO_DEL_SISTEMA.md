@@ -1,4 +1,4 @@
-# 📐 EMACE: Ecosistema Multi-Agente Cognitivo Enterprise
+# EMACE: Ecosistema Multi-Agente Cognitivo Enterprise
 
 ## 1. Visión General
 **EMACE** es una plataforma de asistencia inteligente **proactiva** y **Multi-Tenant (B2B2C)** capaz de resolver consultas complejas y ejecutar acciones en el mundo real. Diseñada para operar como un SaaS, permite que múltiples Vendedores (Users) gestionen sus propios negocios y Clientes Finales (Customers) de forma aislada y segura.

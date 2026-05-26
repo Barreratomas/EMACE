@@ -8,15 +8,22 @@ from app.infrastructure.adapters.checkpoint import get_postgres_checkpointer
 from app.application.graph.workflow import workflow_builder as graph
 from app.infrastructure.security import decrypt_secret
 from app.domain.ports.repositories import ITelegramRepository, IAuthRepository
+from app.domain.ports.background_jobs import IBackgroundJobPort
 import httpx
 from langchain_core.messages import HumanMessage, AIMessage
 
 logger = logging.getLogger(__name__)
 
 class TelegramUseCases:
-    def __init__(self, telegram_repo: ITelegramRepository, auth_repo: IAuthRepository):
+    def __init__(
+        self, 
+        telegram_repo: ITelegramRepository, 
+        auth_repo: IAuthRepository,
+        background_job_port: Optional[IBackgroundJobPort] = None
+    ):
         self.telegram_repo = telegram_repo
         self.auth_repo = auth_repo
+        self.background_job_port = background_job_port
 
     async def _get_vendor_by_public_id(self, session: Any, vendor_public_id: str) -> Optional[User]:
         if vendor_public_id.isdigit():
@@ -66,6 +73,18 @@ class TelegramUseCases:
         customer = cust_res.scalar_one_or_none()
         customer_id = customer.id if customer else None
 
+        # Si tenemos un puerto de tareas en segundo plano, encolamos y salimos
+        if self.background_job_port:
+            await self.background_job_port.enqueue_task(
+                "process_telegram_message_task",
+                vendor_id=vendor.id,
+                chat_id=chat_id,
+                text=text,
+                customer_id=customer_id
+            )
+            return {"ok": True}
+
+        # Fallback a procesamiento síncrono (legacy/test)
         start = time.monotonic()
         success = False
         reply_text: Optional[str] = None

@@ -1,10 +1,10 @@
-# 🤖 EMACE: Ecosistema Multi-Agente Cognitivo Enterprise
+# EMACE: Ecosistema Multi-Agente Cognitivo Enterprise
 
 EMACE es una plataforma avanzada de asistencia inteligente **proactiva** y **Multi-Tenant**, diseñada para resolver consultas complejas y ejecutar acciones empresariales (Facturación, Soporte, Ventas e Inventario) utilizando una arquitectura **Hub-and-Spoke** con agentes especializados coordinados por un Supervisor central.
 
 ---
 
-## 🔴 REGLA CRÍTICA DE DESARROLLO (WSL 2)
+## REGLA CRÍTICA DE DESARROLLO (WSL 2)
 Para un rendimiento óptimo y estabilidad de Docker/Next.js, este proyecto **DEBE** residir en el sistema de archivos nativo de Linux.
 - **NUNCA** uses `/mnt/c/` o carpetas sincronizadas con **OneDrive**.
 - **SIEMPRE** usa `~/projects/emace` o similar dentro de tu distribución de WSL (ej. Ubuntu).
@@ -13,7 +13,7 @@ Consulta la [Guía de Configuración WSL 2](docs/WSL_SETUP.md) para preparar tu 
 
 ---
 
-## 🚀 Inicio Rápido con Docker
+## Inicio Rápido con Docker
 
 El flujo principal de desarrollo está 100% dockerizado. Las dependencias se instalan durante el build, garantizando consistencia.
 
@@ -41,7 +41,7 @@ Consulta la [Guía de Docker](docs/DOCKER_GUIDE.md) para comandos avanzados (log
 
 ---
 
-## 🛠️ Stack Tecnológico
+## Stack Tecnológico
 
 - **Core Cognitivo**: Python 3.11 + LangGraph + LangChain.
 - **API**: FastAPI (Asíncrono, Type-Safe).
@@ -53,7 +53,7 @@ Consulta la [Guía de Docker](docs/DOCKER_GUIDE.md) para comandos avanzados (log
 
 ---
 
-## 🏗️ Estructura del Proyecto (Arquitectura Hexagonal)
+## Estructura del Proyecto (Arquitectura Hexagonal)
 
 El backend sigue el patrón **Ports & Adapters**, desacoplando la lógica de negocio de la infraestructura técnica.
 
@@ -67,7 +67,7 @@ El backend sigue el patrón **Ports & Adapters**, desacoplando la lógica de neg
 
 ---
 
-## 🧪 Desarrollo Local (Manual)
+## Desarrollo Local (Manual)
 
 Si necesitas ejecutar servicios fuera de Docker para debugging profundo:
 
@@ -90,7 +90,7 @@ pnpm dev
 
 ---
 
-## 📘 Documentación Adicional
+## Documentación Adicional
 - [Arquitectura del Sistema](docs/DISEÑO_DEL_SISTEMA.md)
 - [Guía de Usuario](docs/GUIA_USUARIO.md)
 - [Setup de WSL 2](docs/WSL_SETUP.md)
