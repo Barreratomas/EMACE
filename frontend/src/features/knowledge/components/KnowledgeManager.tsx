@@ -121,14 +121,14 @@ export function KnowledgeManager({ initialDocuments, initialUsage }: KnowledgeMa
                   Uso de memoria
                 </span>
                 <span className="font-mono text-[10px] text-slate-600 dark:text-slate-300">
-                  {usage.used_mb.toFixed(2)} MB / {usage.max_mb} MB
+                  {(usage.used_mb || 0).toFixed(2)} MB / {usage.max_mb || 0} MB
                 </span>
               </div>
               <IndustrialProgress
-                value={usage.used_bytes}
-                max={usage.max_bytes}
+                value={usage.used_bytes || 0}
+                max={usage.max_bytes || 0}
                 segments={12}
-                variant={usage.usage_ratio >= 0.8 ? 'safety' : 'primary'}
+                variant={(usage.usage_ratio || 0) >= 0.8 ? 'safety' : 'primary'}
               />
             </div>
           )}

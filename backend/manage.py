@@ -25,17 +25,17 @@ def run_command(command, cwd=None, env=None):
     if backend_str not in current_pythonpath:
         cmd_env["PYTHONPATH"] = f"{backend_str}{os.pathsep}{current_pythonpath}" if current_pythonpath else backend_str
 
-    print(f"📂 Directorio de Trabajo: {cwd}")
-    print(f"🚀 Ejecutando: {command}")
+    print(f"Directorio de Trabajo: {cwd}")
+    print(f"Ejecutando: {command}")
     print("-" * 40)
     
     try:
         subprocess.run(command, cwd=cwd, shell=True, check=True, env=cmd_env)
     except subprocess.CalledProcessError as e:
-        print(f"❌ Error ejecutando el comando. Código de salida: {e.returncode}")
+        print(f"Error ejecutando el comando. Código de salida: {e.returncode}")
         sys.exit(e.returncode)
     except KeyboardInterrupt:
-        print("\n🛑 Detenido por el usuario.")
+        print("\n Detenido por el usuario.")
 
 def start_api(args):
     """Inicia el servidor backend de FastAPI (Uvicorn)."""
@@ -108,9 +108,9 @@ def migrate_down(args):
 
 def migrate_status(args):
     """Muestra el historial de migraciones y la revisión actual de la base de datos."""
-    print("📜 Historial de Migraciones:")
+    print("Historial de Migraciones:")
     run_command("alembic history --verbose")
-    print("\n📍 Revisión Actual:")
+    print("\n Revisión Actual:")
     run_command("alembic current")
 
 def run_seed(args):

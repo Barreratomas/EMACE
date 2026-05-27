@@ -142,30 +142,37 @@ class IngestionService(IKnowledgePort):
         )
 
         offset = None
-        while True:
-            points, offset = self.client.scroll(
-                collection_name=self.collection_name,
-                scroll_filter=query_filter,
-                limit=256,
-                with_payload=True,
-                with_vectors=False,
-                offset=offset
-            )
-            if not points:
-                break
+        try:
+            while True:
+                points, offset = self.client.scroll(
+                    collection_name=self.collection_name,
+                    scroll_filter=query_filter,
+                    limit=256,
+                    with_payload=True,
+                    with_vectors=False,
+                    offset=offset
+                )
+                if not points:
+                    break
 
-            for p in points:
-                payload = getattr(p, "payload", {}) or {}
-                src = payload.get("source")
-                if not src or src in seen_sources:
-                    continue
-                size = payload.get("file_size_bytes")
-                if isinstance(size, (int, float)):
-                    total += int(size)
-                    seen_sources.add(src)
+                for p in points:
+                    payload = getattr(p, "payload", {}) or {}
+                    src = payload.get("source")
+                    if not src or src in seen_sources:
+                        continue
+                    size = payload.get("file_size_bytes")
+                    if isinstance(size, (int, float)):
+                        total += int(size)
+                        seen_sources.add(src)
 
-            if offset is None:
-                break
+                if offset is None:
+                    break
+        except Exception as e:
+            # Si la colección no existe, el uso es 0
+            msg = str(e).lower()
+            if "not found" in msg or "doesn't exist" in msg:
+                return 0
+            raise
 
         return total
 
@@ -204,8 +211,8 @@ class IngestionService(IKnowledgePort):
             return list(sources.values())
         except Exception as e:
             # Si la colección aún no existe, devolvemos lista vacía en lugar de 500
-            msg = str(e)
-            if isinstance(e, UnexpectedResponse) and "Collection `knowledge_base` doesn't exist" in msg:
+            msg = str(e).lower()
+            if "not found" in msg or "doesn't exist" in msg:
                 try:
                     self.logger.info(
                         {
@@ -248,12 +255,19 @@ class IngestionService(IKnowledgePort):
                 )
             )
             
-        self.client.delete(
-            collection_name=self.collection_name,
-            points_selector=models.FilterSelector(
-                filter=models.Filter(must=conditions)
+        try:
+            self.client.delete(
+                collection_name=self.collection_name,
+                points_selector=models.FilterSelector(
+                    filter=models.Filter(must=conditions)
+                )
             )
-        )
+        except Exception as e:
+            msg = str(e).lower()
+            if "not found" in msg or "doesn't exist" in msg:
+                return True # Si no existe la colección, no hay nada que borrar
+            raise
+            
         return True
 
 # Instancia global para uso fácil

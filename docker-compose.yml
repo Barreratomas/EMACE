@@ -102,6 +102,7 @@ services:
       DATABASE_URL: postgresql+psycopg://admin:SecurePass123!@postgres:5432/agent_db
       QDRANT_HOST: qdrant
       QDRANT_PORT: 6333
+      QDRANT_URL: http://qdrant:6333
       REDIS_URL: redis://redis:6379/0
       PYTHONUNBUFFERED: 1
 
@@ -135,6 +136,7 @@ services:
       DATABASE_URL: postgresql+psycopg://admin:SecurePass123!@postgres:5432/agent_db
       QDRANT_HOST: qdrant
       QDRANT_PORT: 6333
+      QDRANT_URL: http://qdrant:6333
       REDIS_URL: redis://redis:6379/0
       PYTHONUNBUFFERED: 1
     networks:

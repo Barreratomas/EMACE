@@ -79,7 +79,10 @@ class KnowledgeUseCases:
         max_bytes = settings.KNOWLEDGE_MAX_MB_PER_VENDOR * 1024 * 1024
         return {
             "used_bytes": usage_bytes,
+            "used_mb": round(usage_bytes / (1024 * 1024), 2),
             "max_bytes": max_bytes,
+            "max_mb": settings.KNOWLEDGE_MAX_MB_PER_VENDOR,
+            "usage_ratio": round(usage_bytes / max_bytes, 4) if max_bytes > 0 else 0,
             "percentage": round((usage_bytes / max_bytes) * 100, 2) if max_bytes > 0 else 0
         }
 
