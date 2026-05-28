@@ -2,7 +2,8 @@ import os
 import shutil
 from typing import List, Dict, Any, Optional
 from fastapi import UploadFile, HTTPException, status
-from app.domain.ports.repositories import IKnowledgePort
+from app.domain.models import AuditLog
+from app.domain.ports.repositories import IKnowledgePort, IAuditRepository
 from app.domain.ports.background_jobs import IBackgroundJobPort
 from app.infrastructure.config import settings
 
@@ -10,12 +11,14 @@ class KnowledgeUseCases:
     def __init__(
         self, 
         knowledge_port: IKnowledgePort,
+        audit_repo: IAuditRepository,
         background_job_port: Optional[IBackgroundJobPort] = None
     ):
         self.knowledge_port = knowledge_port
+        self.audit_repo = audit_repo
         self.background_job_port = background_job_port
 
-    async def upload_document(self, file: UploadFile, user_id: int) -> Dict[str, Any]:
+    async def upload_document(self, session: Any, file: UploadFile, user_id: int) -> Dict[str, Any]:
         allowed_extensions = [".pdf", ".md", ".txt"]
         file_ext = os.path.splitext(file.filename)[1].lower()
         
@@ -50,6 +53,15 @@ class KnowledgeUseCases:
                     file_path=file_path,
                     user_id=user_id
                 )
+                
+                # Log audit
+                await self.audit_repo.save_log(session, AuditLog(
+                    user_id=user_id,
+                    agent_name="System",
+                    action="KNOWLEDGE_UPLOAD_STARTED",
+                    details=f"Subida de documento iniciada: {file.filename} (Task: {task_id})"
+                ))
+
                 return {
                     "message": f"Archivo '{file.filename}' recibido. Procesando en segundo plano...",
                     "task_id": task_id,
@@ -59,6 +71,14 @@ class KnowledgeUseCases:
             # Fallback a procesamiento síncrono (legacy/test)
             self.knowledge_port.ingest_file(file_path, user_id=user_id)
             
+            # Log audit
+            await self.audit_repo.save_log(session, AuditLog(
+                user_id=user_id,
+                agent_name="System",
+                action="KNOWLEDGE_UPLOADED",
+                details=f"Documento subido y procesado: {file.filename}"
+            ))
+
             return {"message": f"Archivo '{file.filename}' procesado correctamente."}
         except Exception as e:
             # Si algo falla antes de encolar, nos aseguramos de limpiar el archivo
@@ -86,6 +106,16 @@ class KnowledgeUseCases:
             "percentage": round((usage_bytes / max_bytes) * 100, 2) if max_bytes > 0 else 0
         }
 
-    async def delete_document(self, user_id: int, source_name: str) -> Dict[str, bool]:
+    async def delete_document(self, session: Any, user_id: int, source_name: str) -> Dict[str, bool]:
         success = self.knowledge_port.delete_document(user_id, source_name)
+        
+        if success:
+            # Log audit
+            await self.audit_repo.save_log(session, AuditLog(
+                user_id=user_id,
+                agent_name="System",
+                action="KNOWLEDGE_DELETED",
+                details=f"Documento eliminado: {source_name}"
+            ))
+
         return {"success": success}

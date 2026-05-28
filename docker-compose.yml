@@ -170,6 +170,7 @@ services:
       HOST: 0.0.0.0
       PORT: 3000
       NODE_ENV: development
+      HOSTNAME: 0.0.0.0 
 
     volumes:
       - ./frontend:/app
@@ -184,7 +185,7 @@ services:
     depends_on:
       - backend
 
-    mem_limit: 1g
+    mem_limit: 2g
 
   cloudflared:
     image: cloudflare/cloudflared:latest

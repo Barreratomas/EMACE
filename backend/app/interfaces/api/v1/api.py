@@ -5,7 +5,6 @@ from app.interfaces.api.v1.endpoints import (
     auth,
     billing,
     chat,
-    dashboard,
     inventory,
     knowledge,
     iam,
@@ -18,11 +17,6 @@ api_router = APIRouter()
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 api_router.include_router(chat.router, prefix="/chat", tags=["chat"])
 api_router.include_router(inventory.router, prefix="/inventory", tags=["inventory"])
-api_router.include_router(
-    dashboard.router,
-    prefix="/vendors/me/dashboard",
-    tags=["dashboard"],
-)
 api_router.include_router(
     agents.router,
     prefix="/vendors/me",

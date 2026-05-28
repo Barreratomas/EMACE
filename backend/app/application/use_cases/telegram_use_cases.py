@@ -7,7 +7,7 @@ from app.domain.models import User, Customer, VendorTelegramIntegration, AuditLo
 from app.infrastructure.adapters.checkpoint import get_postgres_checkpointer
 from app.application.graph.workflow import workflow_builder as graph
 from app.infrastructure.security import decrypt_secret
-from app.domain.ports.repositories import ITelegramRepository, IAuthRepository
+from app.domain.ports.repositories import ITelegramRepository, IAuthRepository, IAuditRepository
 from app.domain.ports.background_jobs import IBackgroundJobPort
 import httpx
 from langchain_core.messages import HumanMessage, AIMessage
@@ -19,10 +19,12 @@ class TelegramUseCases:
         self, 
         telegram_repo: ITelegramRepository, 
         auth_repo: IAuthRepository,
+        audit_repo: IAuditRepository,
         background_job_port: Optional[IBackgroundJobPort] = None
     ):
         self.telegram_repo = telegram_repo
         self.auth_repo = auth_repo
+        self.audit_repo = audit_repo
         self.background_job_port = background_job_port
 
     async def _get_vendor_by_public_id(self, session: Any, vendor_public_id: str) -> Optional[User]:
@@ -119,15 +121,12 @@ class TelegramUseCases:
         duration_ms = int((time.monotonic() - start) * 1000)
         
         # Registrar métrica de auditoría
-        metric = AuditLog(
+        await self.audit_repo.save_log(session, AuditLog(
             user_id=vendor.id,
             agent_name="TelegramWebhook",
             action="telegram_webhook_metric",
-            details=f"vendor_id={vendor.id}|chat_id={chat_id}|success={success}|duration_ms={duration_ms}",
-            timestamp=datetime.now(timezone.utc).replace(tzinfo=None),
-        )
-        session.add(metric)
-        await session.commit()
+            details=f"vendor_id={vendor.id}|chat_id={chat_id}|success={success}|duration_ms={duration_ms}"
+        ))
 
         # Enviar respuesta al usuario vía API de Telegram
         if reply_text:

@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.infrastructure.database.session import get_async_session
 from app.infrastructure.repositories.telegram_integration import telegram_integration_repo
 from app.infrastructure.repositories.auth import AuthRepository
+from app.infrastructure.repositories.audit import audit_repo
 from app.infrastructure.adapters.rate_limit import limiter, telegram_webhook_key
 from app.application.use_cases.telegram_use_cases import TelegramUseCases
 
@@ -24,6 +25,7 @@ def get_telegram_use_cases(
     return TelegramUseCases(
         telegram_repo=telegram_integration_repo, 
         auth_repo=auth_repo,
+        audit_repo=audit_repo,
         background_job_port=background_job_port
     )
 

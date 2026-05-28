@@ -7,12 +7,13 @@ from app.interfaces.api.deps import get_current_user, invalidate_permissions_cac
 from app.domain.schemas.iam import IAMUserCreate, IAMUserResponse, IAMPolicyAssignRequest
 from app.domain.schemas.user import UserResponse
 from app.infrastructure.repositories.auth import AuthRepository
+from app.infrastructure.repositories.audit import audit_repo
 from app.infrastructure.adapters.rate_limit import limiter
 from app.application.use_cases.iam_use_cases import IAMUseCases
 
 router = APIRouter()
 auth_repo = AuthRepository()
-iam_use_cases = IAMUseCases(auth_repo)
+iam_use_cases = IAMUseCases(auth_repo, audit_repo)
 
 @router.post("/users", response_model=IAMUserResponse, status_code=status.HTTP_201_CREATED)
 @limiter.limit("5/minute")

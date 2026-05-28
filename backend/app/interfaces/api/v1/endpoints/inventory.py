@@ -9,12 +9,13 @@ from app.domain.schemas.inventory import ProductCreate, ProductUpdate, ProductRe
 from app.infrastructure.adapters.rate_limit import limiter
 from app.infrastructure.config import settings
 from app.infrastructure.repositories.product import product_repo
+from app.infrastructure.repositories.audit import audit_repo
 from app.infrastructure.database.session import engine
 from app.interfaces.api.deps import get_current_user, get_tenant_owner_id
 from app.application.use_cases.inventory_use_cases import InventoryUseCases
 
 router = APIRouter()
-inventory_use_cases = InventoryUseCases(product_repo)
+inventory_use_cases = InventoryUseCases(product_repo, audit_repo)
 
 @router.get("/products/", response_model=List[ProductResponse])
 @limiter.limit(settings.RATE_LIMIT_READ_PRODUCTS)
@@ -103,7 +104,7 @@ async def adjust_stock(
 ):
     """Ajusta el stock de un producto (cantidad positiva para agregar, negativa para restar)"""
     tenant_id = get_tenant_owner_id(current_user)
-    updated_product = await inventory_use_cases.adjust_stock(engine, product_id, tenant_id, quantity_change)
+    updated_product = await inventory_use_cases.adjust_stock(session, product_id, tenant_id, quantity_change)
     if not updated_product:
         raise HTTPException(status_code=404, detail="Product not found or invalid stock adjustment")
     return updated_product
@@ -172,7 +173,7 @@ async def get_low_stock_products(
     current_user: User = Depends(get_current_user)
 ):
     """Obtiene productos con stock bajo (por debajo del umbral configurado)"""
-    return await inventory_use_cases.get_low_stock_products(engine, current_user.id)
+    return await inventory_use_cases.get_low_stock_products(session, current_user.id)
 
 class BulkStatusUpdateRequest(BaseModel):
     product_ids: List[int]
@@ -192,6 +193,6 @@ async def bulk_update_product_status(
         raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {valid_statuses}")
     
     updated_count = await inventory_use_cases.bulk_update_status(
-        engine, current_user.id, body.product_ids, body.new_status
+        session, current_user.id, body.product_ids, body.new_status
     )
     return {"updated_count": updated_count, "status": body.new_status}

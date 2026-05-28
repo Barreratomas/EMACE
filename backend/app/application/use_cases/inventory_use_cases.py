@@ -4,13 +4,14 @@ import csv
 import pandas as pd
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import Session, select
-from app.domain.models import Product, User
+from app.domain.models import Product, User, AuditLog
 from app.domain.schemas.inventory import ProductCreate, ProductUpdate
-from app.domain.ports.repositories import IProductRepository
+from app.domain.ports.repositories import IProductRepository, IAuditRepository
 
 class InventoryUseCases:
-    def __init__(self, product_repo: IProductRepository):
+    def __init__(self, product_repo: IProductRepository, audit_repo: IAuditRepository):
         self.product_repo = product_repo
+        self.audit_repo = audit_repo
 
     async def list_products(
         self, 
@@ -32,7 +33,17 @@ class InventoryUseCases:
     ) -> Product:
         product = Product(**product_in.model_dump())
         product.user_id = user_id
-        return await self.product_repo.create_async(session, product)
+        db_product = await self.product_repo.create_async(session, product)
+        
+        # Log audit
+        await self.audit_repo.save_log(session, AuditLog(
+            user_id=user_id,
+            agent_name="System",
+            action="PRODUCT_CREATED",
+            details=f"Producto creado: {db_product.name} (ID: {db_product.id})"
+        ))
+        
+        return db_product
 
     async def get_product(
         self, 
@@ -52,7 +63,17 @@ class InventoryUseCases:
         product = await self.product_repo.get_by_id_async(session, product_id, user_id=user_id)
         if not product:
             return None
-        return await self.product_repo.update_async(session, product, product_update)
+        updated_product = await self.product_repo.update_async(session, product, product_update)
+        
+        # Log audit
+        await self.audit_repo.save_log(session, AuditLog(
+            user_id=user_id,
+            agent_name="System",
+            action="PRODUCT_UPDATED",
+            details=f"Producto actualizado: {updated_product.name} (ID: {product_id})"
+        ))
+        
+        return updated_product
 
     async def delete_product(
         self,
@@ -63,36 +84,88 @@ class InventoryUseCases:
         product = await self.product_repo.get_by_id_async(session, product_id, user_id=user_id)
         if not product:
             return False
+        product_name = product.name
         await self.product_repo.delete_async(session, product)
+        
+        # Log audit
+        await self.audit_repo.save_log(session, AuditLog(
+            user_id=user_id,
+            agent_name="System",
+            action="PRODUCT_DELETED",
+            details=f"Producto eliminado: {product_name} (ID: {product_id})"
+        ))
+        
         return True
 
     async def adjust_stock(
         self,
-        engine: Any,
+        session: AsyncSession,
         product_id: int,
         user_id: int,
         quantity_change: int
     ) -> Optional[Product]:
-        with Session(engine) as sync_session:
-            return self.product_repo.update_stock(sync_session, product_id, user_id, quantity_change)
+        product = await self.product_repo.get_by_id_async(session, product_id, user_id=user_id)
+        if not product or product.type != "physical" or product.stock is None:
+            return None
+        
+        new_stock = product.stock + quantity_change
+        if new_stock < 0:
+            return None
+            
+        product.stock = new_stock
+        if new_stock == 0:
+            product.status = "paused"
+            
+        session.add(product)
+        await session.commit()
+        await session.refresh(product)
+
+        # Log audit
+        await self.audit_repo.save_log(session, AuditLog(
+            user_id=user_id,
+            agent_name="System",
+            action="STOCK_ADJUSTED",
+            details=f"Stock ajustado: {product.name} (ID: {product_id}). Cambio: {quantity_change}, Nuevo total: {new_stock}"
+        ))
+        
+        return product
 
     async def get_low_stock_products(
         self,
-        engine: Any,
+        session: AsyncSession,
         user_id: int
     ) -> List[Product]:
-        with Session(engine) as sync_session:
-            return self.product_repo.check_low_stock(sync_session, user_id)
+        return await self.product_repo.count_low_stock_products_list(session, user_id)
 
     async def bulk_update_status(
         self,
-        engine: Any,
+        session: AsyncSession,
         user_id: int,
         product_ids: List[int],
         new_status: str
     ) -> int:
-        with Session(engine) as sync_session:
-            return self.product_repo.bulk_update_stock_status(sync_session, user_id, product_ids, new_status)
+        products = await self.product_repo.get_all_async(session, user_id=user_id)
+        # Filtrar solo los que están en la lista
+        target_products = [p for p in products if p.id in product_ids]
+        
+        updated_count = 0
+        for product in target_products:
+            if product.status != new_status:
+                product.status = new_status
+                session.add(product)
+                updated_count += 1
+        
+        if updated_count > 0:
+            await session.commit()
+            # Log audit
+            await self.audit_repo.save_log(session, AuditLog(
+                user_id=user_id,
+                agent_name="System",
+                action="BULK_STATUS_UPDATE",
+                details=f"Actualización masiva: {updated_count} productos cambiados a '{new_status}'"
+            ))
+        
+        return updated_count
 
     async def import_products(
         self,
@@ -209,6 +282,15 @@ class InventoryUseCases:
 
         if not dry_run:
             await session.commit()
+            
+            # Log audit
+            if imported_count > 0 or updated_count > 0:
+                await self.audit_repo.save_log(session, AuditLog(
+                    user_id=user_id,
+                    agent_name="System",
+                    action="BULK_IMPORT",
+                    details=f"Importación masiva: {imported_count} nuevos, {updated_count} actualizados ({filename})"
+                ))
 
         return {
             "dry_run": dry_run,

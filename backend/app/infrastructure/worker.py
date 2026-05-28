@@ -15,6 +15,7 @@ from app.application.graph.workflow import workflow_builder as graph
 from app.infrastructure.security import decrypt_secret
 from app.domain.models import Customer, AuditLog
 from app.infrastructure.repositories.auth import AuthRepository
+from app.infrastructure.repositories.audit import audit_repo
 from app.infrastructure.repositories.telegram_integration import telegram_integration_repo
 from app.infrastructure.adapters.rag.ingestion import IngestionService
 from app.infrastructure.adapters.comm.notifications import _send_email, _render_template, _extract_kv
@@ -108,15 +109,12 @@ async def process_telegram_message_task(
         duration_ms = int((time.monotonic() - start) * 1000)
         
         # Registrar métrica de auditoría
-        metric = AuditLog(
+        await audit_repo.save_log(session, AuditLog(
             user_id=vendor_id,
             agent_name="TelegramWorker",
             action="telegram_worker_metric",
-            details=f"vendor_id={vendor_id}|chat_id={chat_id}|success={success}|duration_ms={duration_ms}",
-            timestamp=datetime.now(timezone.utc).replace(tzinfo=None),
-        )
-        session.add(metric)
-        await session.commit()
+            details=f"vendor_id={vendor_id}|chat_id={chat_id}|success={success}|duration_ms={duration_ms}"
+        ))
 
         # Enviar respuesta al usuario vía API de Telegram
         if reply_text:

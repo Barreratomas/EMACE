@@ -7,7 +7,13 @@ from app.domain.models import User
 from app.infrastructure.database.session import get_async_session
 from app.infrastructure.adapters.rate_limit import limiter
 from app.infrastructure.config import settings
-from app.application.use_cases.analytics_use_cases import AnalyticsUseCases, MetricItem
+from app.application.use_cases.analytics_use_cases import (
+    AnalyticsUseCases, 
+    MetricItem,
+    DashboardAgentSummary,
+    DashboardChartPoint,
+    DashboardViewResponse
+)
 from app.infrastructure.repositories.audit import AuditRepository
 from app.infrastructure.repositories.product import ProductRepository
 from app.infrastructure.repositories.billing import BillingRepository
@@ -55,6 +61,17 @@ async def get_vendor_business_metrics(
     return await analytics_use_cases.get_business_metrics(session, tenant_id)
 
 
+@router.get("/dashboard/view", response_model=DashboardViewResponse)
+async def get_dashboard_view(
+    request: Request,
+    session: AsyncSession = Depends(get_async_session),
+    current_user: User = Depends(get_current_user),
+):
+    """Obtiene una vista consolidada de todo el dashboard en una sola petición"""
+    tenant_id = get_tenant_owner_id(current_user)
+    return await analytics_use_cases.get_dashboard_view(session, tenant_id)
+
+
 @router.get("/audit/stream")
 async def get_audit_stream(
     request: Request,
@@ -65,3 +82,27 @@ async def get_audit_stream(
     """Obtiene el flujo de eventos de auditoría para el dashboard en tiempo real"""
     tenant_id = get_tenant_owner_id(current_user)
     return await analytics_use_cases.get_audit_stream(session, tenant_id, limit=limit)
+
+
+@router.get("/performance/chart", response_model=List[DashboardChartPoint])
+async def get_performance_chart(
+    request: Request,
+    session: AsyncSession = Depends(get_async_session),
+    current_user: User = Depends(get_current_user),
+):
+    """Obtiene los datos para el gráfico de rendimiento de las últimas 24h"""
+    tenant_id = get_tenant_owner_id(current_user)
+    # actualmente simulado
+    return await analytics_use_cases.get_performance_chart(session, tenant_id)
+
+
+@router.get("/agents/status", response_model=List[DashboardAgentSummary])
+async def get_agents_status(
+    request: Request,
+    session: AsyncSession = Depends(get_async_session),
+    current_user: User = Depends(get_current_user),
+):
+    """Obtiene el estado actual y carga de los agentes del vendor"""
+    tenant_id = get_tenant_owner_id(current_user)
+    # actualmente simulado
+    return await analytics_use_cases.get_agents_status(session, tenant_id)

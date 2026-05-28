@@ -147,6 +147,16 @@ class ProductRepository(IProductRepository):
         result = await session.execute(query)
         return result.scalar() or 0
 
+    async def count_low_stock_products_list(self, session: AsyncSession, user_id: int) -> List[Product]:
+        query = select(Product).where(
+            Product.user_id == user_id,
+            Product.type == "physical",
+            Product.stock.is_not(None),
+            Product.stock <= func.coalesce(Product.min_stock_threshold, 5),
+        )
+        result = await session.execute(query)
+        return list(result.scalars().all())
+
     async def count_categories(self, session: Any, user_id: int) -> int:
         query = select(func.count(func.distinct(Product.category))).where(
             Product.user_id == user_id,

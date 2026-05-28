@@ -33,3 +33,5 @@ class AuditRepository(IAuditRepository):
         await session.commit()
         await session.refresh(log)
         return log
+
+audit_repo = AuditRepository()

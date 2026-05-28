@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.domain.models import User, IAMPolicy, AuditLog, Role
 from app.infrastructure.security import get_password_hash
 from app.domain.schemas.iam import IAMUserCreate, IAMPolicyAssignRequest
-from app.domain.ports.repositories import IAuthRepository
+from app.domain.ports.repositories import IAuthRepository, IAuditRepository
 
 # Mapeo base de políticas conocidas a permisos efectivos
 DEFAULT_POLICY_PERMISSIONS: Dict[str, List[str]] = {
@@ -16,8 +16,9 @@ DEFAULT_POLICY_PERMISSIONS: Dict[str, List[str]] = {
 }
 
 class IAMUseCases:
-    def __init__(self, auth_repo: IAuthRepository):
+    def __init__(self, auth_repo: IAuthRepository, audit_repo: IAuditRepository):
         self.auth_repo = auth_repo
+        self.audit_repo = audit_repo
 
     def ensure_vendor(self, user: User):
         if user.parent_id is not None:
@@ -61,14 +62,13 @@ class IAMUseCases:
         if invalidate_cache_callback:
             invalidate_cache_callback(created.id)
             
-        log = AuditLog(
+        await self.audit_repo.save_log(session, AuditLog(
             user_id=current_user.id, 
             agent_name="iam", 
             action="create_iam_user", 
-            details=f"{created.id}"
-        )
-        session.add(log)
-        await session.commit()
+            details=f"Usuario IAM creado: {created.email} (ID: {created.id})"
+        ))
+        
         return created
 
     async def list_iam_users(self, session: AsyncSession, current_user: User) -> List[User]:
@@ -134,14 +134,13 @@ class IAMUseCases:
         if invalidate_cache_callback:
             invalidate_cache_callback(user.id)
             
-        log = AuditLog(
+        await self.audit_repo.save_log(session, AuditLog(
             user_id=current_user.id, 
             agent_name="iam", 
             action="set_user_policies", 
-            details=f"{user.id}:{payload.operation}:{','.join(payload.policies)}"
-        )
-        session.add(log)
-        await session.commit()
+            details=f"Políticas actualizadas para {user.email} (ID: {user_id}). Op: {payload.operation}, Políticas: {','.join(payload.policies)}"
+        ))
+        
         return user
 
     async def revoke_all_sessions(self, session: AsyncSession, current_user: User, user_id: int):
@@ -150,12 +149,12 @@ class IAMUseCases:
         if not user:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado")
         await self.auth_repo.revoke_all_user_tokens(session, user.id)
-        log = AuditLog(
+        
+        await self.audit_repo.save_log(session, AuditLog(
             user_id=current_user.id, 
             agent_name="iam", 
             action="revoke_all_sessions", 
-            details=f"{user.id}"
-        )
-        session.add(log)
-        await session.commit()
+            details=f"Sesiones revocadas para el usuario ID: {user_id}"
+        ))
+        
         return {"ok": True}
