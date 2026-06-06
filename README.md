@@ -41,6 +41,23 @@ Consulta la [Guía de Docker](docs/DOCKER_GUIDE.md) para comandos avanzados (log
 
 ---
 
+## Sincronización de API (Backend <-> Frontend)
+
+Cuando modifiques rutas, esquemas o modelos en el Backend, debes sincronizar el Frontend para mantener el tipado y el SDK actualizados:
+
+1.  **Backend**: Generar el esquema OpenAPI JSON:
+    ```bash
+    cd backend
+    python generate_openapi.py
+    ```
+2.  **Frontend**: Regenerar el SDK de TypeScript:
+    ```bash
+    cd frontend
+    npm run generate-api
+    ```
+
+---
+
 ## Stack Tecnológico
 
 - **Core Cognitivo**: Python 3.11 + LangGraph + LangChain.
